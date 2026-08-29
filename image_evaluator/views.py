@@ -9,10 +9,12 @@ from django.views import View
 
 from .forms import PrepareEvaluationForm, RatingForm
 from .models import EvaluationRating, EvaluationRun
-from .services import analyze_image, shuffle_models
+from .services import analyze_image, shuffle_models, validate_api_key
+from .services.api_key import ApiKeyStatus
 
 SESSION_PENDING_KEY = "pending_analysis"
 SESSION_ERROR_KEY = "request_error"
+SESSION_API_KEY_STATUS = "openai_api_key_status"
 
 
 def _clear_pending(request) -> None:
@@ -20,28 +22,61 @@ def _clear_pending(request) -> None:
     request.session.pop(SESSION_ERROR_KEY, None)
 
 
-def _api_key_missing(request) -> HttpResponse | None:
-    if settings.OPENAI_API_KEY:
-        return None
-    return render(
-        request,
-        "image_evaluator/missing_api_key.html",
-        status=503,
+def _status_from_session(data: dict) -> ApiKeyStatus:
+    return ApiKeyStatus(
+        ok=data["ok"],
+        message=data["message"],
+        missing_models=data.get("missing_models", []),
+        checked_models=data.get("checked_models", []),
     )
+
+
+def _check_api_key(request) -> HttpResponse | None:
+    if not settings.OPENAI_API_KEY:
+        return render(
+            request,
+            "image_evaluator/missing_api_key.html",
+            status=503,
+        )
+
+    if request.GET.get("recheck") == "1":
+        request.session.pop(SESSION_API_KEY_STATUS, None)
+
+    cached = request.session.get(SESSION_API_KEY_STATUS)
+    if cached and cached.get("key") == settings.OPENAI_API_KEY:
+        status = _status_from_session(cached)
+    else:
+        status = validate_api_key()
+        request.session[SESSION_API_KEY_STATUS] = {
+            "key": settings.OPENAI_API_KEY,
+            "ok": status.ok,
+            "message": status.message,
+            "missing_models": status.missing_models,
+            "checked_models": status.checked_models,
+        }
+
+    if not status.ok:
+        return render(
+            request,
+            "image_evaluator/invalid_api_key.html",
+            {"status": status},
+            status=503,
+        )
+    return None
 
 
 class PrepareView(View):
     template_name = "image_evaluator/prepare.html"
 
     def get(self, request):
-        blocked = _api_key_missing(request)
+        blocked = _check_api_key(request)
         if blocked:
             return blocked
         form = PrepareEvaluationForm()
         return render(request, self.template_name, {"form": form})
 
     def post(self, request):
-        blocked = _api_key_missing(request)
+        blocked = _check_api_key(request)
         if blocked:
             return blocked
 
@@ -66,7 +101,7 @@ class EvaluateView(View):
     template_name = "image_evaluator/evaluate.html"
 
     def get(self, request, run_id):
-        blocked = _api_key_missing(request)
+        blocked = _check_api_key(request)
         if blocked:
             return blocked
 
@@ -95,7 +130,7 @@ class EvaluateView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, run_id):
-        blocked = _api_key_missing(request)
+        blocked = _check_api_key(request)
         if blocked:
             return blocked
 

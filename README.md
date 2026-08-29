@@ -10,11 +10,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Put your OpenAI key in `.env` at the project root:
+Copy `.env.example` to `.env` at the **project root** and set your OpenAI key:
 
 ```
 OPENAI_API_KEY=sk-...
 ```
+
+Django reads the root `.env`, not `scripts/openai-image-evaluator/.env`.
 
 ## Run
 
@@ -24,6 +26,22 @@ python manage.py runserver
 ```
 
 Open http://127.0.0.1:8000/
+
+## API key health check
+
+Unit tests (mocked, no network):
+
+```bash
+python manage.py test image_evaluator.tests.test_api_key
+```
+
+Live OpenAI validation (free key check + small billable vision probe):
+
+```bash
+python manage.py test image_evaluator.tests.test_api_key --tag=openai
+```
+
+The prepare page also validates the key once per session (free `models.list()` check).
 
 ## Layout
 

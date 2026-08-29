@@ -1,0 +1,21 @@
+{% extends "image_evaluator/base.html" %}
+
+{% block title %}API key invalid · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout single">
+  <section class="panel">
+    <h2>OpenAI API key problem</h2>
+    <p>{{ status.message }}</p>
+    {% if status.missing_models %}
+      <p class="muted">Missing models: {{ status.missing_models|join:", " }}</p>
+    {% endif %}
+    <p>
+      Update <code style="display:inline;background:#111827;padding:0.1rem 0.35rem;">.env</code>
+      at the project root (not <code style="display:inline;background:#111827;padding:0.1rem 0.35rem;">scripts/openai-image-evaluator/.env</code>),
+      then restart the server.
+    </p>
+    <p><a href="?recheck=1">Re-check API key</a></p>
+  </section>
+</div>
+{% endblock %}
