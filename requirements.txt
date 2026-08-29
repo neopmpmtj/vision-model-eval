@@ -1,0 +1,4 @@
+Django>=5.0,<6
+openai>=2.0,<3
+python-decouple>=3.8
+Pillow>=10.0,<12

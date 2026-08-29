@@ -1,0 +1,79 @@
+{% extends "image_evaluator/base.html" %}
+
+{% block title %}{{ sample_name }} · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Fixed test inputs</h2>
+    <img src="{{ run.image.url }}" alt="{{ run.image_name }}">
+    <p><strong>{{ run.image_name }}</strong></p>
+    <p class="muted">{{ run.prompt }}</p>
+    <form method="post" action="{% url 'image_evaluator:reset' %}" style="margin-top:1rem;">
+      {% csrf_token %}
+      <button class="btn secondary" type="submit">Reset evaluation</button>
+    </form>
+  </aside>
+
+  <section class="panel">
+    <p class="muted">{{ sample_name }} of {{ total_models }}</p>
+    <div class="progress" aria-hidden="true"><span style="width: {{ progress_pct }}%;"></span></div>
+    <h2>{{ sample_name }}</h2>
+    <p class="muted">The model identity remains hidden until all responses have been rated.</p>
+
+    {% if not pending %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="generate">
+        <div class="actions">
+          <button class="btn" type="submit">Generate {{ sample_name }}</button>
+        </div>
+      </form>
+      {% if request_error %}
+        <details open>
+          <summary>Technical details</summary>
+          <code>{{ request_error }}</code>
+        </details>
+      {% endif %}
+    {% else %}
+      <h3>Response</h3>
+      <div class="response-box">{{ pending.response }}</div>
+      <p class="muted">Response time: {{ pending.latency_seconds|floatformat:3 }} seconds</p>
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="rate">
+
+        <label for="{{ rating_form.rating.id_for_label }}">{{ rating_form.rating.label }}</label>
+        <div class="range-row">
+          {{ rating_form.rating }}
+          <span class="rating-value" id="rating-display">{{ rating_form.rating.value|default:3 }}</span>
+        </div>
+        {{ rating_form.rating.errors }}
+
+        <label for="{{ rating_form.notes.id_for_label }}">{{ rating_form.notes.label }}</label>
+        {{ rating_form.notes }}
+        {{ rating_form.notes.errors }}
+
+        <div class="actions">
+          <button class="btn" type="submit">Save rating and continue</button>
+        </div>
+      </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var input = document.getElementById("id_rating");
+    var display = document.getElementById("rating-display");
+    if (input && display) {
+      input.addEventListener("input", function () {
+        display.textContent = input.value;
+      });
+    }
+  });
+</script>
+{% endblock %}

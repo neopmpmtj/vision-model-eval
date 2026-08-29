@@ -1,0 +1,15 @@
+{% extends "image_evaluator/base.html" %}
+
+{% block title %}API key missing · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout single">
+  <section class="panel">
+    <h2>OPENAI_API_KEY was not found</h2>
+    <p>
+      Add your key to the project root <code style="display:inline;background:#111827;padding:0.1rem 0.35rem;">.env</code>
+      file, then restart the server.
+    </p>
+  </section>
+</div>
+{% endblock %}

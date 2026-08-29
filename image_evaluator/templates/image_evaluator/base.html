@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}OpenAI Image Evaluator{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --text: #1a1d23;
+      --muted: #5c6570;
+      --border: #d8dde3;
+      --accent: #1f4b99;
+      --accent-hover: #183a78;
+      --danger: #9b1c1c;
+      --ok: #0f6b3c;
+      --sidebar: #eef1f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header.app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 1.5rem;
+    }
+    header.app-header h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.5rem;
+    }
+    header.app-header p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 1.5rem;
+      max-width: 1100px;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem 2rem;
+    }
+    .layout.single {
+      grid-template-columns: 1fr;
+      max-width: 720px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .sidebar {
+      background: var(--sidebar);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      height: fit-content;
+    }
+    .sidebar img {
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin-bottom: 0.75rem;
+    }
+    .sidebar h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin: 0.75rem 0 0.35rem;
+    }
+    input[type="file"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+      background: #fff;
+    }
+    .checkbox-list {
+      list-style: none;
+      padding: 0;
+      margin: 0.25rem 0 0;
+    }
+    .checkbox-list li {
+      margin: 0.35rem 0;
+    }
+    .help {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    .errorlist {
+      color: var(--danger);
+      margin: 0.35rem 0 0;
+      padding-left: 1.1rem;
+    }
+    .messages {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1rem;
+    }
+    .messages li {
+      padding: 0.65rem 0.8rem;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+    .messages .error {
+      background: #fde8e8;
+      color: var(--danger);
+    }
+    .messages .success {
+      background: #e7f7ee;
+      color: var(--ok);
+    }
+    .btn {
+      display: inline-block;
+      border: none;
+      border-radius: 6px;
+      padding: 0.6rem 1rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn.secondary:hover { background: #f0f2f5; }
+    .actions {
+      margin-top: 1.25rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .progress {
+      height: 10px;
+      background: #e4e8ee;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 0.75rem 0 1rem;
+    }
+    .progress > span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+    }
+    .muted { color: var(--muted); }
+    .response-box {
+      white-space: pre-wrap;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      margin: 0.75rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      padding: 0.65rem 0.5rem;
+      vertical-align: top;
+    }
+    th { font-weight: 600; }
+    details {
+      margin-top: 0.75rem;
+    }
+    code {
+      display: block;
+      white-space: pre-wrap;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .range-row input[type="range"] { flex: 1; }
+    .rating-value {
+      min-width: 1.5rem;
+      font-weight: 700;
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="app-header">
+    <h1>OpenAI Image Understanding Evaluator</h1>
+    <p>One image · one fixed prompt · several OpenAI models · your blind ratings</p>
+  </header>
+  {% if messages %}
+  <ul class="messages" style="max-width:1100px;margin:1rem auto 0;padding:0 1.5rem;">
+    {% for message in messages %}
+      <li class="{{ message.tags }}">{{ message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% block content %}{% endblock %}
+</body>
+</html>

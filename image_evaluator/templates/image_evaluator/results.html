@@ -1,0 +1,51 @@
+{% extends "image_evaluator/base.html" %}
+
+{% block title %}Results · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout single">
+  <section class="panel">
+    <h2>Comparison complete — model identities are now revealed.</h2>
+    <p class="muted">Image: {{ run.image_name }}</p>
+
+    <div style="overflow-x:auto;margin:1rem 0;">
+      <table>
+        <thead>
+          <tr>
+            <th>Sample</th>
+            <th>Model</th>
+            <th>Rating</th>
+            <th>Latency (s)</th>
+            <th>Input tokens</th>
+            <th>Output tokens</th>
+            <th>Notes</th>
+            <th>Response</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rating in ratings %}
+          <tr>
+            <td>{{ rating.sample_label }}</td>
+            <td>{{ rating.model }}</td>
+            <td>{{ rating.rating }}</td>
+            <td>{{ rating.latency_seconds|floatformat:3 }}</td>
+            <td>{{ rating.input_tokens|default:"—" }}</td>
+            <td>{{ rating.output_tokens|default:"—" }}</td>
+            <td>{{ rating.notes|default:"—" }}</td>
+            <td>{{ rating.response|truncatechars:240 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="actions">
+      <a class="btn" href="{% url 'image_evaluator:download' run.id %}">Download this comparison as CSV</a>
+      <form method="post" action="{% url 'image_evaluator:reset' %}">
+        {% csrf_token %}
+        <button class="btn secondary" type="submit">Start another comparison</button>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

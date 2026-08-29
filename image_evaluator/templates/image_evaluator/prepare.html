@@ -1,0 +1,35 @@
+{% extends "image_evaluator/base.html" %}
+
+{% block title %}Prepare comparison · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout single">
+  <section class="panel">
+    <h2>Prepare a comparison</h2>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
+      {{ form.image }}
+      {{ form.image.errors }}
+
+      <label for="{{ form.prompt.id_for_label }}">{{ form.prompt.label }}</label>
+      {{ form.prompt }}
+      {{ form.prompt.errors }}
+
+      <label>{{ form.models.label }}</label>
+      <ul class="checkbox-list">
+        {% for checkbox in form.models %}
+          <li>{{ checkbox.tag }} <label for="{{ checkbox.id_for_label }}" style="display:inline;font-weight:400;">{{ checkbox.choice_label }}</label></li>
+        {% endfor %}
+      </ul>
+      <p class="help">{{ form.models.help_text }}</p>
+      {{ form.models.errors }}
+
+      <div class="actions">
+        <button class="btn" type="submit">Start blind comparison</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}
