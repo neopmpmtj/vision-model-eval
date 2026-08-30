@@ -8,6 +8,11 @@ from image_evaluator.model_catalog import (
     enabled_labs,
     models_for_lab,
 )
+from image_evaluator.prompt_presets import (
+    default_preset_id,
+    default_prompt_text,
+    preset_choices,
+)
 from image_evaluator.services.openai_eval import ApiRequestConfig
 
 # openai.types.shared.reasoning_effort.ReasoningEffort
@@ -59,10 +64,21 @@ class PrepareEvaluationForm(forms.Form):
             attrs={"accept": "image/png,image/jpeg,image/webp,image/gif"}
         ),
     )
+    description = forms.CharField(
+        label="Session description",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text="Optional. What this session is for — used to find it later.",
+    )
+    prompt_preset = forms.ChoiceField(
+        label="Prompt preset",
+        choices=[],
+        initial=default_preset_id,
+    )
     prompt = forms.CharField(
         label="Prompt used for every model",
         widget=forms.Textarea(attrs={"rows": 4}),
-        initial=settings.DEFAULT_EVAL_PROMPT,
+        initial=default_prompt_text,
     )
     models = forms.MultipleChoiceField(
         label="Models to compare",
@@ -103,6 +119,7 @@ class PrepareEvaluationForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["lab"].choices = enabled_labs()
+        self.fields["prompt_preset"].choices = preset_choices()
         lab_id = self._selected_lab_id()
         lab_models = models_for_lab(lab_id)
         self.fields["models"].choices = all_enabled_model_choices()
@@ -132,6 +149,16 @@ class PrepareEvaluationForm(forms.Form):
         if len(selected) < 2:
             raise forms.ValidationError("Select at least two models to make a comparison.")
         return selected
+
+    def clean_description(self):
+        return self.cleaned_data["description"].strip()
+
+    def clean_prompt_preset(self):
+        preset_id = self.cleaned_data["prompt_preset"]
+        valid_ids = {choice[0] for choice in preset_choices()}
+        if preset_id not in valid_ids:
+            raise forms.ValidationError("Select a valid prompt preset.")
+        return preset_id
 
     def clean_prompt(self):
         prompt = self.cleaned_data["prompt"].strip()

@@ -53,13 +53,17 @@ Choose a session type on the new-session page (`/new/`):
 
 Blind mode randomizes model order. Benchmark mode runs models in the order selected.
 
+On `/new/` you can pick a **prompt preset** (fills the textarea; edit freely) and optionally enter a **session description** for your own notes (shown in the console and CSV, not sent to OpenAI).
+
 ## Data model
 
 ```
-EvaluationRun          shared session (image, prompt, model list, image metadata, API defaults)
+EvaluationRun          shared session (image, prompt, optional description, model list, image metadata, API defaults)
     ├── EvaluationTurn     one row per model API call (latencies, tokens, request/response JSON)
     └── LatencyBenchmark   optional OneToOne FK; session aggregates for benchmark runs only
 ```
+
+`EvaluationRun.prompt` is the exact text sent to every model. `EvaluationRun.description` is optional human metadata (aim of the session) — not sent to the API; intended for later search/embedding.
 
 Run type is inferred from related records — there is no `mode` column on `EvaluationRun`. A benchmark run has a linked `LatencyBenchmark` row; a blind comparison does not.
 
@@ -111,6 +115,8 @@ Optional defaults in `config/settings.py` (pre-filled on `/new/`, snapshotted pe
 | Setting | Default |
 |---------|---------|
 | `MODEL_LABS` | OpenAI enabled; Gemini/DeepSeek stubs |
+| `EVAL_PROMPT_PRESETS` | describe, ocr, inventory, uncertainty (`EVAL_PROMPT_DEFAULT_ID` = `describe`) |
+| `DEFAULT_EVAL_PROMPT` | Same text as the `describe` preset |
 | `OPENAI_DEFAULT_REASONING_EFFORT` | `low` (SDK: none, minimal, low, medium, high, xhigh, max) |
 | `OPENAI_DEFAULT_REASONING_MODE` | `standard` (SDK: standard, pro) |
 | `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS` | `1600` |

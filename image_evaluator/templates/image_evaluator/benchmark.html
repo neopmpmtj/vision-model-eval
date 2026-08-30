@@ -8,6 +8,9 @@
     <h2>Benchmark inputs</h2>
     <img src="{{ run.image.url }}" alt="{{ run.image_name }}">
     <p><strong>{{ run.image_name }}</strong></p>
+    {% if run.description %}
+    <p class="muted"><strong>Session:</strong> {{ run.description }}</p>
+    {% endif %}
     <p class="muted">{{ run.prompt }}</p>
     {% if run.api_defaults %}
     <dl class="meta-grid" style="margin-top:0.75rem;">

@@ -37,6 +37,9 @@
         {% if run.completed_at %}
           <p class="muted">Completed {{ run.completed_at|date:"Y-m-d H:i:s" }} UTC</p>
         {% endif %}
+        {% if run.description %}
+        <p><strong>Session:</strong> {{ run.description }}</p>
+        {% endif %}
         <p>{{ run.prompt }}</p>
       </div>
     </div>

@@ -29,6 +29,15 @@
       {{ form.image }}
       {{ form.image.errors }}
 
+      <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+      {{ form.description }}
+      <p class="help">{{ form.description.help_text }}</p>
+      {{ form.description.errors }}
+
+      <label for="{{ form.prompt_preset.id_for_label }}">{{ form.prompt_preset.label }}</label>
+      {{ form.prompt_preset }}
+      {{ form.prompt_preset.errors }}
+
       <label for="{{ form.prompt.id_for_label }}">{{ form.prompt.label }}</label>
       {{ form.prompt }}
       {{ form.prompt.errors }}
@@ -82,26 +91,47 @@
 {% endblock %}
 
 {% block extra_head %}
+{{ prompt_preset_texts|json_script:"prompt-preset-texts" }}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     var labSelect = document.getElementById("id_lab");
     var options = document.querySelectorAll(".model-option");
-    if (!labSelect || !options.length) return;
+    if (labSelect && options.length) {
+      function syncModels() {
+        var lab = labSelect.value;
+        options.forEach(function (row) {
+          var show = row.getAttribute("data-lab") === lab;
+          row.style.display = show ? "" : "none";
+          if (!show) {
+            var input = row.querySelector('input[type="checkbox"]');
+            if (input) input.checked = false;
+          }
+        });
+      }
 
-    function syncModels() {
-      var lab = labSelect.value;
-      options.forEach(function (row) {
-        var show = row.getAttribute("data-lab") === lab;
-        row.style.display = show ? "" : "none";
-        if (!show) {
-          var input = row.querySelector('input[type="checkbox"]');
-          if (input) input.checked = false;
-        }
-      });
+      labSelect.addEventListener("change", syncModels);
+      syncModels();
     }
 
-    labSelect.addEventListener("change", syncModels);
-    syncModels();
+    var presetSelect = document.getElementById("id_prompt_preset");
+    var promptField = document.getElementById("id_prompt");
+    var presetTextsEl = document.getElementById("prompt-preset-texts");
+    if (!presetSelect || !promptField || !presetTextsEl) return;
+
+    var presetTexts = JSON.parse(presetTextsEl.textContent);
+    var customPresetId = "{{ custom_preset_id }}";
+
+    presetSelect.addEventListener("change", function () {
+      var presetId = presetSelect.value;
+      if (presetId === customPresetId) return;
+      if (Object.prototype.hasOwnProperty.call(presetTexts, presetId)) {
+        promptField.value = presetTexts[presetId];
+      }
+    });
+
+    promptField.addEventListener("input", function () {
+      presetSelect.value = customPresetId;
+    });
   });
 </script>
 {% endblock %}

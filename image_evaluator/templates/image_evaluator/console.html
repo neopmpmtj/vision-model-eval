@@ -96,6 +96,7 @@
             <th>Created</th>
             <th>ID</th>
             <th>Image</th>
+            <th>Description</th>
             <th>Type</th>
             <th>Status</th>
             <th>Progress</th>
@@ -110,6 +111,7 @@
             <td>{{ run.created_at|date:"Y-m-d H:i" }}</td>
             <td><code class="inline">{{ run.id|short_id }}</code></td>
             <td>{{ run.image_name|truncatechars:30 }}</td>
+            <td>{% if run.description %}{{ run.description|truncatechars:40 }}{% else %}—{% endif %}</td>
             <td>
               {% if run.is_benchmark %}
                 <span class="badge benchmark">benchmark</span>

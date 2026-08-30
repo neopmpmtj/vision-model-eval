@@ -136,6 +136,36 @@ DEFAULT_EVAL_PROMPT = (
     "any visible text, and anything uncertain."
 )
 
+EVAL_PROMPT_DEFAULT_ID = "describe"
+
+EVAL_PROMPT_PRESETS = {
+    "describe": {
+        "label": "Describe (default)",
+        "text": DEFAULT_EVAL_PROMPT,
+    },
+    "ocr": {
+        "label": "OCR / text extraction",
+        "text": (
+            "Transcribe all visible text in this image. Preserve layout where helpful. "
+            "Note language, handwriting or print, and anything unreadable or uncertain."
+        ),
+    },
+    "inventory": {
+        "label": "Object inventory",
+        "text": (
+            "List the main objects in this image. Include counts where possible and "
+            "describe spatial relationships between them."
+        ),
+    },
+    "uncertainty": {
+        "label": "Uncertainty focus",
+        "text": (
+            "Describe this image, emphasizing what is occluded, ambiguous, low resolution, "
+            "or otherwise uncertain. Do not guess beyond what the image supports."
+        ),
+    },
+}
+
 OPENAI_DEFAULT_REASONING_EFFORT = "low"
 OPENAI_DEFAULT_REASONING_MODE = "standard"
 OPENAI_DEFAULT_MAX_OUTPUT_TOKENS = 1600

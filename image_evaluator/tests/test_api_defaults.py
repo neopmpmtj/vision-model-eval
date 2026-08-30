@@ -31,6 +31,7 @@ class ApiDefaultsFormTests(TestCase):
         data = {
             "run_type": "blind_comparison",
             "lab": "openai",
+            "prompt_preset": "describe",
             "prompt": "describe",
             "models": ["gpt-5.6-luna", "gpt-5.6-terra"],
             "reasoning_effort": "xhigh",
@@ -57,6 +58,7 @@ class ApiDefaultsFormTests(TestCase):
             {
                 "run_type": "blind_comparison",
                 "lab": "openai",
+                "prompt_preset": "describe",
                 "prompt": "describe",
                 "models": ["gpt-5.6-luna", "gpt-5.6-terra"],
                 "reasoning_effort": "minimal",

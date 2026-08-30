@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 2026-08-30 10:06 (UTC+1)
+Last updated: 2026-08-30 10:25 (UTC+1)
 
 ## Project
 
@@ -32,6 +32,9 @@ No `docs/PROJECT-PLAN.md` yet.
 - **MODEL_LABS** catalog (OpenAI enabled; Gemini/DeepSeek stubs); lab select on prepare form
 - **Benchmark UX**: one model per request on `/run/<id>/benchmark/`; first model auto-runs; user reads full response + latency then continues via `?continue=1`
 - **Latency metrics documented**: Wall (s) = precise `perf_counter()` around `client.responses.create()`; OpenAI (s) = rough `completed_at − created_at` (often whole-second timestamps, can be higher or lower than wall). Labels + footnote on results table; docstring on `_openai_latency_seconds()`; tests in `test_metadata.py`
+- **Prompt presets** on `/new/` (`EVAL_PROMPT_PRESETS` in settings): dropdown fills the prompt textarea; edited text wins on POST; `custom` preset when user edits
+- **Session description** optional on `/new/` → `EvaluationRun.description` (metadata only, not sent to OpenAI); shown on console/inspect/sidebars; CSV column `session_description`
+- Migration `0003_evaluationrun_description`
 
 ## Not done
 
@@ -39,6 +42,7 @@ No `docs/PROJECT-PLAN.md` yet.
 - User authentication
 - Production deploy (PostgreSQL, static files, etc.)
 - Formal phased project plan
+- Prompt library (save/reuse named prompts) and vector search on session descriptions
 
 ## Locked decisions
 
@@ -65,6 +69,12 @@ python manage.py runserver
 ```
 
 ## Session log
+
+### 2026-08-30 10:25 (UTC+1)
+
+- Prompt preset dropdown on `/new/` (describe, OCR, inventory, uncertainty, custom); textarea text snapshotted to `EvaluationRun.prompt`
+- Optional session description on runs; console column + CSV `session_description`; not sent to API
+- Tests in `test_prompt_presets.py`
 
 ### 2026-08-30 10:06 (UTC+1)
 

@@ -25,6 +25,7 @@ class EvaluationRun(models.Model):
     image_width = models.PositiveIntegerField(null=True, blank=True)
     image_height = models.PositiveIntegerField(null=True, blank=True)
     prompt = models.TextField()
+    description = models.TextField(blank=True, default="")
     model_order = models.JSONField(default=list)
     api_defaults = models.JSONField(default=dict, blank=True)
     status = models.CharField(

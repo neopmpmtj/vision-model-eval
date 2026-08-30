@@ -20,7 +20,12 @@
 
     <div style="display:flex;gap:1rem;align-items:flex-start;margin:1rem 0;">
       <img class="thumb" src="{{ run.image.url }}" alt="{{ run.image_name }}">
-      <p class="muted" style="margin:0;">{{ run.prompt }}</p>
+      <div style="margin:0;">
+        {% if run.description %}
+        <p class="muted" style="margin:0 0 0.5rem;"><strong>Session:</strong> {{ run.description }}</p>
+        {% endif %}
+        <p class="muted" style="margin:0;">{{ run.prompt }}</p>
+      </div>
     </div>
 
     <p class="help">Wall is precise client wait time. OpenAI is <code class="inline">completed_at − created_at</code> from the API (often whole-second Unix timestamps) — it can be higher or lower than wall.</p>

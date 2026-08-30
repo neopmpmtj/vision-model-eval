@@ -29,6 +29,7 @@ from .services.api_key import ApiKeyStatus
 from .services.console import console_overview, filter_runs, model_summaries, session_url_name
 from .services.openai_eval import ApiRequestConfig
 from .model_catalog import disabled_labs, model_to_lab_map
+from .prompt_presets import CUSTOM_PRESET_ID, preset_texts
 
 SESSION_PENDING_TURN_KEY = "pending_turn_id"
 SESSION_ERROR_KEY = "request_error"
@@ -91,6 +92,7 @@ def _create_run(
     *,
     uploaded,
     prompt: str,
+    description: str,
     model_order: list[str],
     api_defaults: dict,
 ) -> EvaluationRun:
@@ -103,6 +105,7 @@ def _create_run(
         image_width=width,
         image_height=height,
         prompt=prompt,
+        description=description,
         model_order=model_order,
         api_defaults=api_defaults,
         status=RunStatus.IN_PROGRESS,
@@ -121,6 +124,7 @@ def _turn_csv_fields() -> list[str]:
         "status",
         "image_name",
         "prompt",
+        "session_description",
         "rating",
         "notes",
         "rated_at",
@@ -161,6 +165,7 @@ def _turn_csv_row(*, run: EvaluationRun, turn: EvaluationTurn) -> dict:
         "status": turn.status,
         "image_name": run.image_name,
         "prompt": run.prompt,
+        "session_description": run.description,
         "rating": turn.rating if turn.rating is not None else "",
         "notes": turn.notes,
         "rated_at": turn.rated_at.isoformat() if turn.rated_at else "",
@@ -240,6 +245,15 @@ class InspectTurnView(View):
 class PrepareView(View):
     template_name = "image_evaluator/prepare.html"
 
+    def _prepare_context(self, form: PrepareEvaluationForm) -> dict:
+        return {
+            "form": form,
+            "disabled_labs": disabled_labs(),
+            "model_to_lab": model_to_lab_map(),
+            "prompt_preset_texts": preset_texts(),
+            "custom_preset_id": CUSTOM_PRESET_ID,
+        }
+
     def get(self, request):
         blocked = _check_api_key(request)
         if blocked:
@@ -248,11 +262,7 @@ class PrepareView(View):
         return render(
             request,
             self.template_name,
-            {
-                "form": form,
-                "disabled_labs": disabled_labs(),
-                "model_to_lab": model_to_lab_map(),
-            },
+            self._prepare_context(form),
         )
 
     def post(self, request):
@@ -265,11 +275,7 @@ class PrepareView(View):
             return render(
                 request,
                 self.template_name,
-                {
-                    "form": form,
-                    "disabled_labs": disabled_labs(),
-                    "model_to_lab": model_to_lab_map(),
-                },
+                self._prepare_context(form),
             )
 
         uploaded = form.cleaned_data["image"]
@@ -281,6 +287,7 @@ class PrepareView(View):
         run = _create_run(
             uploaded=uploaded,
             prompt=form.cleaned_data["prompt"],
+            description=form.cleaned_data["description"],
             model_order=model_order,
             api_defaults=form.api_defaults_dict(),
         )
