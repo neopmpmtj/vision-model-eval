@@ -14,7 +14,12 @@ from image_evaluator.models import (
     RunStatus,
     TurnStatus,
 )
-from image_evaluator.services.openai_eval import AnalysisResult, ApiRequestConfig, _response_snapshot
+from image_evaluator.services.openai_eval import (
+    AnalysisResult,
+    ApiRequestConfig,
+    _openai_latency_seconds,
+    _response_snapshot,
+)
 
 
 def make_test_image() -> SimpleUploadedFile:
@@ -62,6 +67,32 @@ class MetadataExtractionTests(TestCase):
         snapshot = _response_snapshot(response)
         self.assertEqual(snapshot["id"], "resp_abc")
         self.assertEqual(snapshot["model"], "gpt-test")
+
+    def test_openai_latency_seconds_from_timestamps(self):
+        response = MagicMock()
+        response.created_at = 1000.0
+        response.completed_at = 1005.0
+        self.assertEqual(_openai_latency_seconds(response), 5.0)
+
+    def test_openai_latency_can_exceed_wall_with_integer_second_timestamps(self):
+        """Regression: Sample 2 had wall=4.628s but OpenAI=5.000s — not a wall-clock bug."""
+        response = MagicMock()
+        response.created_at = 1_700_000_000
+        response.completed_at = 1_700_000_005
+        openai_seconds = _openai_latency_seconds(response)
+        wall_seconds = 4.628
+        self.assertEqual(openai_seconds, 5.0)
+        self.assertGreater(openai_seconds, wall_seconds)
+
+    def test_openai_latency_can_be_less_than_wall_with_integer_second_timestamps(self):
+        """Regression: Sample 1 had wall=5.748s but OpenAI=4.000s — same timestamp quirk."""
+        response = MagicMock()
+        response.created_at = 1_700_000_000
+        response.completed_at = 1_700_000_004
+        openai_seconds = _openai_latency_seconds(response)
+        wall_seconds = 5.748
+        self.assertEqual(openai_seconds, 4.0)
+        self.assertLess(openai_seconds, wall_seconds)
 
 
 from image_evaluator.services.api_key import ApiKeyStatus
@@ -113,7 +144,7 @@ class TurnPersistenceTests(TestCase):
 class BenchmarkViewTests(TestCase):
     @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
     @patch("image_evaluator.views.analyze_image")
-    def test_benchmark_creates_turns_and_latency_benchmark(self, mock_analyze, _mock_key):
+    def test_benchmark_runs_one_model_per_step(self, mock_analyze, _mock_key):
         mock_analyze.return_value = make_analysis_result()
         run = EvaluationRun.objects.create(
             image=make_test_image(),
@@ -125,9 +156,23 @@ class BenchmarkViewTests(TestCase):
         LatencyBenchmark.objects.create(run=run, turn_count_expected=2)
         client = Client()
         url = reverse("image_evaluator:benchmark", kwargs={"run_id": run.id})
-        response = client.get(url)
-        self.assertEqual(response.status_code, 302)
+
+        first = client.get(url)
+        self.assertEqual(first.status_code, 200)
+        self.assertContains(first, "ok")
+        self.assertContains(first, "gpt-a")
+        self.assertContains(first, "Run next model: gpt-b")
+        self.assertEqual(EvaluationTurn.objects.filter(run=run).count(), 1)
+        self.assertEqual(mock_analyze.call_count, 1)
+
+        idle = client.get(url)
+        self.assertEqual(idle.status_code, 200)
+        self.assertEqual(mock_analyze.call_count, 1)
+
+        last = client.get(f"{url}?continue=1")
+        self.assertEqual(last.status_code, 302)
         self.assertEqual(EvaluationTurn.objects.filter(run=run).count(), 2)
+        self.assertEqual(mock_analyze.call_count, 2)
         benchmark = LatencyBenchmark.objects.get(run=run)
         self.assertEqual(benchmark.status, RunStatus.COMPLETED)
         self.assertEqual(benchmark.successful_turn_count, 2)

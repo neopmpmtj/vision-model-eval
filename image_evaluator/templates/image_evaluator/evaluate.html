@@ -9,6 +9,18 @@
     <img src="{{ run.image.url }}" alt="{{ run.image_name }}">
     <p><strong>{{ run.image_name }}</strong></p>
     <p class="muted">{{ run.prompt }}</p>
+    {% if run.api_defaults %}
+    <dl class="meta-grid" style="margin-top:0.75rem;">
+      {% if run.api_defaults.lab %}<div><dt>Lab</dt><dd>{{ run.api_defaults.lab }}</dd></div>{% endif %}
+      {% if run.api_defaults.reasoning %}
+      <div><dt>Reasoning effort</dt><dd>{{ run.api_defaults.reasoning.effort|default:"—" }}</dd></div>
+      <div><dt>Reasoning mode</dt><dd>{{ run.api_defaults.reasoning.mode|default:"—" }}</dd></div>
+      {% endif %}
+      <div><dt>Max output tokens</dt><dd>{{ run.api_defaults.max_output_tokens|default:"—" }}</dd></div>
+      <div><dt>Image detail</dt><dd>{{ run.api_defaults.image_detail|default:"—" }}</dd></div>
+      <div><dt>Store</dt><dd>{{ run.api_defaults.store|yesno:"yes,no" }}</dd></div>
+    </dl>
+    {% endif %}
     <form method="post" action="{% url 'image_evaluator:reset' run.id %}" style="margin-top:1rem;">
       {% csrf_token %}
       <button class="btn secondary" type="submit">Reset evaluation</button>

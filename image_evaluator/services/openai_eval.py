@@ -17,6 +17,7 @@ from openai import OpenAI
 @dataclass(frozen=True)
 class ApiRequestConfig:
     reasoning_effort: str
+    reasoning_mode: str
     max_output_tokens: int
     store: bool
     image_detail: str
@@ -25,14 +26,33 @@ class ApiRequestConfig:
     def from_settings(cls) -> ApiRequestConfig:
         return cls(
             reasoning_effort=settings.OPENAI_DEFAULT_REASONING_EFFORT,
+            reasoning_mode=settings.OPENAI_DEFAULT_REASONING_MODE,
             max_output_tokens=settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS,
             store=settings.OPENAI_DEFAULT_STORE,
             image_detail=settings.OPENAI_DEFAULT_IMAGE_DETAIL,
         )
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> ApiRequestConfig:
+        if not data:
+            return cls.from_settings()
+        reasoning = data.get("reasoning") if isinstance(data.get("reasoning"), dict) else {}
+        effort = reasoning.get("effort") or data.get("reasoning_effort")
+        mode = reasoning.get("mode") or data.get("reasoning_mode")
+        return cls(
+            reasoning_effort=str(effort or settings.OPENAI_DEFAULT_REASONING_EFFORT),
+            reasoning_mode=str(mode or settings.OPENAI_DEFAULT_REASONING_MODE),
+            max_output_tokens=int(data.get("max_output_tokens") or settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS),
+            store=bool(data.get("store", settings.OPENAI_DEFAULT_STORE)),
+            image_detail=str(data.get("image_detail") or settings.OPENAI_DEFAULT_IMAGE_DETAIL),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
-            "reasoning": {"effort": self.reasoning_effort},
+            "reasoning": {
+                "effort": self.reasoning_effort,
+                "mode": self.reasoning_mode,
+            },
             "max_output_tokens": self.max_output_tokens,
             "store": self.store,
             "image_detail": self.image_detail,
@@ -104,6 +124,11 @@ def _response_snapshot(response: Any) -> dict[str, Any]:
 
 
 def _openai_latency_seconds(response: Any) -> float | None:
+    """Server-side window from response Unix timestamps (often whole seconds).
+
+    This is not comparable as a strict upper/lower bound on client wall time:
+    integer-second timestamps can round up (openai > wall) or down (openai < wall).
+    """
     created_at = getattr(response, "created_at", None)
     completed_at = getattr(response, "completed_at", None)
     if created_at is None or completed_at is None:
@@ -148,7 +173,7 @@ def analyze_image(
                 ],
             }
         ],
-        reasoning={"effort": config.reasoning_effort},
+        reasoning={"effort": config.reasoning_effort, "mode": config.reasoning_mode},
         max_output_tokens=config.max_output_tokens,
         store=config.store,
     )

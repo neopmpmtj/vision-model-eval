@@ -49,7 +49,7 @@ Choose a session type on the new-session page (`/new/`):
 | Type | Purpose |
 |------|---------|
 | **Blind comparison** | Upload an image, generate one anonymous response per model, rate each 1–5, then reveal model names |
-| **Latency benchmark** | Auto-run all selected models sequentially with no ratings; optimized for latency measurement |
+| **Latency benchmark** | Run models one at a time with no ratings; read each response and latency before continuing |
 
 Blind mode randomizes model order. Benchmark mode runs models in the order selected.
 
@@ -106,17 +106,18 @@ python manage.py test image_evaluator.tests.test_api_key --tag=openai
 
 ## Configuration
 
-Optional API defaults in `config/settings.py`:
+Optional defaults in `config/settings.py` (pre-filled on `/new/`, snapshotted per run):
 
 | Setting | Default |
 |---------|---------|
-| `OPENAI_DEFAULT_REASONING_EFFORT` | `low` |
+| `MODEL_LABS` | OpenAI enabled; Gemini/DeepSeek stubs |
+| `OPENAI_DEFAULT_REASONING_EFFORT` | `low` (SDK: none, minimal, low, medium, high, xhigh, max) |
+| `OPENAI_DEFAULT_REASONING_MODE` | `standard` (SDK: standard, pro) |
 | `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS` | `1600` |
-| `OPENAI_DEFAULT_IMAGE_DETAIL` | `auto` |
+| `OPENAI_DEFAULT_IMAGE_DETAIL` | `auto` (SDK: auto, low, high, original) |
 | `OPENAI_DEFAULT_STORE` | `False` |
-| `AVAILABLE_MODELS` | `gpt-5.6-luna`, `gpt-5.6-terra`, `gpt-5.6-sol` |
 
-Defaults are snapshotted into `EvaluationRun.api_defaults` at session creation.
+Chosen values are stored in `EvaluationRun.api_defaults` and sent on every API call. Per-turn `api_request` records what was actually sent.
 
 ## Project layout
 

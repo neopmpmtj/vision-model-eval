@@ -2,6 +2,39 @@ from django import forms
 from django.conf import settings
 from django.db import models
 
+from image_evaluator.model_catalog import (
+    all_enabled_model_choices,
+    default_lab_id,
+    enabled_labs,
+    models_for_lab,
+)
+from image_evaluator.services.openai_eval import ApiRequestConfig
+
+# openai.types.shared.reasoning_effort.ReasoningEffort
+REASONING_EFFORT_CHOICES = [
+    ("none", "none"),
+    ("minimal", "minimal"),
+    ("low", "low"),
+    ("medium", "medium"),
+    ("high", "high"),
+    ("xhigh", "xhigh"),
+    ("max", "max"),
+]
+
+# openai.types.shared_params.reasoning.Reasoning mode
+REASONING_MODE_CHOICES = [
+    ("standard", "standard"),
+    ("pro", "pro"),
+]
+
+# openai.types.responses.response_input_image_param.ResponseInputImageParam.detail
+IMAGE_DETAIL_CHOICES = [
+    ("auto", "auto"),
+    ("low", "low"),
+    ("high", "high"),
+    ("original", "original"),
+]
+
 
 class RunType(models.TextChoices):
     BLIND_COMPARISON = "blind_comparison", "Blind comparison (rate responses)"
@@ -14,6 +47,11 @@ class PrepareEvaluationForm(forms.Form):
         choices=RunType.choices,
         initial=RunType.BLIND_COMPARISON,
         widget=forms.RadioSelect,
+    )
+    lab = forms.ChoiceField(
+        label="Model lab",
+        choices=[],
+        initial=default_lab_id,
     )
     image = forms.ImageField(
         label="Upload one image",
@@ -28,14 +66,69 @@ class PrepareEvaluationForm(forms.Form):
     )
     models = forms.MultipleChoiceField(
         label="Models to compare",
-        choices=[(model, model) for model in settings.AVAILABLE_MODELS],
+        choices=[],
         widget=forms.CheckboxSelectMultiple,
-        initial=list(settings.AVAILABLE_MODELS),
         help_text="Their order will be randomized in blind mode. Benchmark mode runs them sequentially.",
     )
+    reasoning_effort = forms.ChoiceField(
+        label="Reasoning effort",
+        choices=REASONING_EFFORT_CHOICES,
+        initial=settings.OPENAI_DEFAULT_REASONING_EFFORT,
+    )
+    reasoning_mode = forms.ChoiceField(
+        label="Reasoning mode",
+        choices=REASONING_MODE_CHOICES,
+        initial=settings.OPENAI_DEFAULT_REASONING_MODE,
+        help_text="GPT-5 and o-series models only.",
+    )
+    max_output_tokens = forms.IntegerField(
+        label="Max output tokens",
+        min_value=1,
+        max_value=128000,
+        initial=settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS,
+    )
+    image_detail = forms.ChoiceField(
+        label="Image detail",
+        choices=IMAGE_DETAIL_CHOICES,
+        initial=settings.OPENAI_DEFAULT_IMAGE_DETAIL,
+        help_text="Responses API input_image detail parameter.",
+    )
+    store = forms.BooleanField(
+        label="Store responses on OpenAI",
+        required=False,
+        initial=settings.OPENAI_DEFAULT_STORE,
+        help_text="When unchecked, the API is called with store=false.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lab"].choices = enabled_labs()
+        lab_id = self._selected_lab_id()
+        lab_models = models_for_lab(lab_id)
+        self.fields["models"].choices = all_enabled_model_choices()
+        if not self.is_bound:
+            self.fields["models"].initial = lab_models
+
+    def _selected_lab_id(self) -> str:
+        if self.is_bound:
+            return self.data.get("lab") or default_lab_id()
+        if self.initial.get("lab"):
+            return self.initial["lab"]
+        return default_lab_id()
+
+    def clean_lab(self):
+        lab_id = self.cleaned_data["lab"]
+        if lab_id not in dict(enabled_labs()):
+            raise forms.ValidationError("Select an enabled model lab.")
+        return lab_id
 
     def clean_models(self):
         selected = self.cleaned_data["models"]
+        lab_id = self.cleaned_data.get("lab") or self._selected_lab_id()
+        allowed = set(models_for_lab(lab_id))
+        invalid = [model for model in selected if model not in allowed]
+        if invalid:
+            raise forms.ValidationError("One or more models are not available for the selected lab.")
         if len(selected) < 2:
             raise forms.ValidationError("Select at least two models to make a comparison.")
         return selected
@@ -45,6 +138,17 @@ class PrepareEvaluationForm(forms.Form):
         if not prompt:
             raise forms.ValidationError("Enter a prompt.")
         return prompt
+
+    def api_defaults_dict(self) -> dict:
+        config = ApiRequestConfig(
+            reasoning_effort=self.cleaned_data["reasoning_effort"],
+            reasoning_mode=self.cleaned_data["reasoning_mode"],
+            max_output_tokens=self.cleaned_data["max_output_tokens"],
+            store=self.cleaned_data["store"],
+            image_detail=self.cleaned_data["image_detail"],
+        ).to_dict()
+        config["lab"] = self.cleaned_data["lab"]
+        return config
 
 
 class RatingForm(forms.Form):

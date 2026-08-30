@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 2026-08-30 09:15 (UTC+1)
+Last updated: 2026-08-30 10:06 (UTC+1)
 
 ## Project
 
@@ -28,6 +28,10 @@ No `docs/PROJECT-PLAN.md` yet.
 - **Console dashboard** at `/` — run list, filters, cross-run stats, per-model summaries
 - **Inspect pages** at `/run/<id>/inspect/` and `/run/<id>/turn/<n>/` — full metadata without Django admin
 - Prepare form moved to `/new/`; site nav on all pages
+- **Pickable API defaults** on `/new/` (reasoning effort/mode, tokens, image detail, store) using official OpenAI SDK enums; snapshotted in `api_defaults`
+- **MODEL_LABS** catalog (OpenAI enabled; Gemini/DeepSeek stubs); lab select on prepare form
+- **Benchmark UX**: one model per request on `/run/<id>/benchmark/`; first model auto-runs; user reads full response + latency then continues via `?continue=1`
+- **Latency metrics documented**: Wall (s) = precise `perf_counter()` around `client.responses.create()`; OpenAI (s) = rough `completed_at − created_at` (often whole-second timestamps, can be higher or lower than wall). Labels + footnote on results table; docstring on `_openai_latency_seconds()`; tests in `test_metadata.py`
 
 ## Not done
 
@@ -41,8 +45,9 @@ No `docs/PROJECT-PLAN.md` yet.
 - Root `.env` is the only Django secrets file (not `scripts/.../.env`)
 - No `mode` on `EvaluationRun` — benchmark vs blind inferred from `LatencyBenchmark` presence
 - Turns saved immediately; ratings optional on `EvaluationTurn`
-- Benchmark runs all models in one request cycle on `/run/<id>/benchmark/`
+- Benchmark runs one model per step on `/run/<id>/benchmark/`; user reads each response then continues
 - `/` is the console hub; `/new/` is the prepare form (URL name `prepare` unchanged)
+- **Wall (s)** is the authoritative latency for benchmarks; **OpenAI (s)** is a coarse server-side estimate only (~1s resolution)
 
 ## Next (suggested)
 
@@ -60,6 +65,19 @@ python manage.py runserver
 ```
 
 ## Session log
+
+### 2026-08-30 10:06 (UTC+1)
+
+- Clarified Wall vs OpenAI latency: wall is precise client wait; OpenAI is rough `completed_at − created_at` (integer-second timestamps common)
+- Benchmark page shows full response text per model; interactive step-through (`?continue=1`) instead of all models in one request
+- Results table: client/server column labels + help footnote
+- Tests in `MetadataExtractionTests` document OpenAI latency can exceed or be less than wall
+
+### 2026-08-30 09:35 (UTC+1)
+
+- Pickable API options on `/new/` with official SDK enums; run snapshot drives generate/benchmark
+- MODEL_LABS catalog; AGENTS.md rule for doc-backed enums and error turns
+- Tests in `test_api_defaults.py`
 
 ### 2026-08-30 09:15 (UTC+1)
 

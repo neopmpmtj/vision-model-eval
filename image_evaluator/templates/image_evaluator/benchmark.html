@@ -1,13 +1,62 @@
 {% extends "image_evaluator/base.html" %}
 
-{% block title %}Running benchmark · OpenAI Image Evaluator{% endblock %}
+{% block title %}Latency benchmark · OpenAI Image Evaluator{% endblock %}
 
 {% block content %}
-<div class="layout single">
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Benchmark inputs</h2>
+    <img src="{{ run.image.url }}" alt="{{ run.image_name }}">
+    <p><strong>{{ run.image_name }}</strong></p>
+    <p class="muted">{{ run.prompt }}</p>
+    {% if run.api_defaults %}
+    <dl class="meta-grid" style="margin-top:0.75rem;">
+      {% if run.api_defaults.lab %}<div><dt>Lab</dt><dd>{{ run.api_defaults.lab }}</dd></div>{% endif %}
+      {% if run.api_defaults.reasoning %}
+      <div><dt>Effort</dt><dd>{{ run.api_defaults.reasoning.effort|default:"—" }}</dd></div>
+      <div><dt>Mode</dt><dd>{{ run.api_defaults.reasoning.mode|default:"—" }}</dd></div>
+      {% endif %}
+    </dl>
+    {% endif %}
+  </aside>
+
   <section class="panel">
-    <h2>Running latency benchmark</h2>
-    <p class="muted">Calling each model sequentially. This page will redirect when finished.</p>
-    <p class="muted">If you are not redirected automatically, <a href="{% url 'image_evaluator:benchmark' run.id %}">click here to continue</a>.</p>
+    <h2>Latency benchmark</h2>
+    <p class="muted">{{ completed_count }} of {{ total_models }} models complete — read each response, then run the next.</p>
+    <div class="progress" aria-hidden="true"><span style="width: {{ progress_pct }}%;"></span></div>
+
+    {% for turn in turns %}
+    <article style="margin:1.25rem 0;padding:1rem;border:1px solid var(--border);border-radius:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+        <div>
+          <strong>{{ turn.model }}</strong>
+          <span class="badge {{ turn.status }}" style="margin-left:0.5rem;">{{ turn.status }}</span>
+        </div>
+        <p class="muted" style="margin:0;">
+          Wall {{ turn.latency_wall_seconds|floatformat:3|default:"—" }}s
+          {% if turn.latency_openai_seconds %}· OpenAI {{ turn.latency_openai_seconds|floatformat:3 }}s{% endif %}
+          {% if turn.total_tokens %}· {{ turn.total_tokens }} tokens{% endif %}
+        </p>
+      </div>
+      {% if turn.status == 'error' %}
+        <p class="muted" style="margin:0.75rem 0 0;"><strong>{{ turn.error_type }}</strong></p>
+        <div class="response-box">{{ turn.error_message }}</div>
+      {% elif turn.response_text %}
+        <div class="response-box" style="margin-top:0.75rem;">{{ turn.response_text }}</div>
+      {% endif %}
+      <p style="margin:0.5rem 0 0;"><a class="table-link" href="{% url 'image_evaluator:inspect_turn' run.id turn.turn_index %}">Turn metadata</a></p>
+    </article>
+    {% empty %}
+    <p class="muted">Starting first model…</p>
+    {% endfor %}
+
+    <div class="actions">
+      {% if next_model %}
+        <a class="btn" href="{% url 'image_evaluator:benchmark' run.id %}?continue=1">Run next model: {{ next_model }}</a>
+      {% endif %}
+      <a class="btn secondary" href="{% url 'image_evaluator:inspect' run.id %}">Inspect run</a>
+      <a class="btn secondary" href="{% url 'image_evaluator:console' %}">Console</a>
+    </div>
   </section>
 </div>
 {% endblock %}

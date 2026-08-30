@@ -1,4 +1,5 @@
 {% extends "image_evaluator/base.html" %}
+{% load console_tags %}
 
 {% block title %}Prepare comparison · OpenAI Image Evaluator{% endblock %}
 
@@ -6,7 +7,7 @@
 <div class="layout single">
   <section class="panel">
     <h2>Prepare a session</h2>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" id="prepare-form">
       {% csrf_token %}
 
       <label>{{ form.run_type.label }}</label>
@@ -17,6 +18,13 @@
       </ul>
       {{ form.run_type.errors }}
 
+      <label for="{{ form.lab.id_for_label }}">{{ form.lab.label }}</label>
+      {{ form.lab }}
+      {{ form.lab.errors }}
+      {% if disabled_labs %}
+        <p class="help">Coming soon: {% for lab_id, label in disabled_labs %}{{ label }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+
       <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
       {{ form.image }}
       {{ form.image.errors }}
@@ -26,13 +34,44 @@
       {{ form.prompt.errors }}
 
       <label>{{ form.models.label }}</label>
-      <ul class="checkbox-list">
+      <ul class="checkbox-list" id="model-list">
         {% for checkbox in form.models %}
-          <li>{{ checkbox.tag }} <label for="{{ checkbox.id_for_label }}" style="display:inline;font-weight:400;">{{ checkbox.choice_label }}</label></li>
+          <li class="model-option" data-lab="{{ model_to_lab|get_item:checkbox.choice_label }}">
+            {{ checkbox.tag }}
+            <label for="{{ checkbox.id_for_label }}" style="display:inline;font-weight:400;">{{ checkbox.choice_label }}</label>
+          </li>
         {% endfor %}
       </ul>
       <p class="help">{{ form.models.help_text }}</p>
       {{ form.models.errors }}
+
+      <h3 style="margin-top:1.25rem;">API options</h3>
+      <p class="help">Defaults match <code class="inline">config/settings.py</code>. Snapshotted on the run and sent with every model call.</p>
+
+      <label for="{{ form.reasoning_effort.id_for_label }}">{{ form.reasoning_effort.label }}</label>
+      {{ form.reasoning_effort }}
+      {{ form.reasoning_effort.errors }}
+
+      <label for="{{ form.reasoning_mode.id_for_label }}">{{ form.reasoning_mode.label }}</label>
+      {{ form.reasoning_mode }}
+      <p class="help">{{ form.reasoning_mode.help_text }}</p>
+      {{ form.reasoning_mode.errors }}
+
+      <label for="{{ form.max_output_tokens.id_for_label }}">{{ form.max_output_tokens.label }}</label>
+      {{ form.max_output_tokens }}
+      {{ form.max_output_tokens.errors }}
+
+      <label for="{{ form.image_detail.id_for_label }}">{{ form.image_detail.label }}</label>
+      {{ form.image_detail }}
+      <p class="help">{{ form.image_detail.help_text }}</p>
+      {{ form.image_detail.errors }}
+
+      <div style="margin-top:0.75rem;">
+        {{ form.store }}
+        <label for="{{ form.store.id_for_label }}" style="display:inline;font-weight:400;">{{ form.store.label }}</label>
+        <p class="help">{{ form.store.help_text }}</p>
+      </div>
+      {{ form.store.errors }}
 
       <div class="actions">
         <button class="btn" type="submit">Start session</button>
@@ -40,4 +79,29 @@
     </form>
   </section>
 </div>
+{% endblock %}
+
+{% block extra_head %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var labSelect = document.getElementById("id_lab");
+    var options = document.querySelectorAll(".model-option");
+    if (!labSelect || !options.length) return;
+
+    function syncModels() {
+      var lab = labSelect.value;
+      options.forEach(function (row) {
+        var show = row.getAttribute("data-lab") === lab;
+        row.style.display = show ? "" : "none";
+        if (!show) {
+          var input = row.querySelector('input[type="checkbox"]');
+          if (input) input.checked = false;
+        }
+      });
+    }
+
+    labSelect.addEventListener("change", syncModels);
+    syncModels();
+  });
+</script>
 {% endblock %}

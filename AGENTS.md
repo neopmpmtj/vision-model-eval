@@ -26,7 +26,7 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 
 - Streaming / TTFB (`time_to_first_token_seconds` column exists, always null)
 - User authentication
-- Background jobs for benchmark runs (sequential in-request is intentional)
+- Background jobs for benchmark runs (stepped in-browser flow is intentional)
 - Production deployment hardening (PostgreSQL, `DEBUG=False`, etc.)
 - Formal project plan document
 
@@ -85,6 +85,7 @@ views.py  →  services/  →  models.py  →  SQLite
 - **Persist turns on generate** (success or error); ratings attach to existing `EvaluationTurn` rows in blind mode
 - **Do not add a `mode` field on `EvaluationRun`** — use `LatencyBenchmark` FK to distinguish benchmark sessions
 - **Snapshot API defaults** into `EvaluationRun.api_defaults` at session creation; per-turn `api_request` records what was sent
+- **API parameter enums** (reasoning effort/mode, image detail, etc.) must match official OpenAI docs / installed SDK types — do not guess
 - Plain Django templates + minimal inline CSS — no React/Vue
 - **Minimize scope** — focused diffs; match existing patterns in `views.py`, `models.py`, services
 
@@ -96,6 +97,8 @@ views.py  →  services/  →  models.py  →  SQLite
 - Put secrets in root `.env` only; use `.env.example` as the committed template
 - Keep latency/metadata fields on `EvaluationTurn`; aggregates on `LatencyBenchmark`
 - Record failed API calls as `EvaluationTurn` with `status=error`
+- When adding form choices or API parameter enums, read the **current** official provider docs and installed SDK types (e.g. `.venv/.../openai/types/...`). Do not invent or truncate lists from memory
+- If the provider rejects a parameter value (model-dependent support), persist `EvaluationTurn` with `status=error`, `error_type`, and `error_message`; surface it in the UI. Do not silently remap to another value
 - Update `docs/handoff.md` at the end of a session with what changed and what is next
 
 ## Do not
@@ -105,6 +108,7 @@ views.py  →  services/  →  models.py  →  SQLite
 - Store turn data only in the session — DB is the source of truth
 - Conflate ratings with turn records (ratings are nullable fields on `EvaluationTurn`)
 - Run live OpenAI tests (`--tag=openai`) in CI without explicit intent — they cost tokens
+- Guess API enum members, copy stale Chat Completions lists when the app uses Responses, or catch API errors without writing an error turn
 - Edit the plan files in `.cursor/plans/` unless the user asks
 - Over-engineer: no extra abstractions, queues, or auth unless requested
 
@@ -141,8 +145,9 @@ python manage.py createsuperuser
 
 Loaded via `python-decouple` from root `.env`. Defaults in `config/settings.py`:
 
-- `OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS`, `OPENAI_DEFAULT_IMAGE_DETAIL`, `OPENAI_DEFAULT_STORE`
-- `AVAILABLE_MODELS` — checkbox choices on prepare form
+- `MODEL_LABS` — lab-grouped model catalog (`openai` enabled; `google`, `deepseek` stubs)
+- `OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_REASONING_MODE`, `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS`, `OPENAI_DEFAULT_IMAGE_DETAIL`, `OPENAI_DEFAULT_STORE`
+- `AVAILABLE_MODELS` — derived from enabled labs; used for API key validation
 
 ## Cursor project config
 

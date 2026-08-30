@@ -23,6 +23,8 @@
       <p class="muted" style="margin:0;">{{ run.prompt }}</p>
     </div>
 
+    <p class="help">Wall is precise client wait time. OpenAI is <code class="inline">completed_at − created_at</code> from the API (often whole-second Unix timestamps) — it can be higher or lower than wall.</p>
+
     <div style="overflow-x:auto;margin:1rem 0;">
       <table>
         <thead>
@@ -31,8 +33,8 @@
             <th>Model</th>
             <th>Status</th>
             {% if not benchmark %}<th>Rating</th>{% endif %}
-            <th>Wall (s)</th>
-            <th>OpenAI (s)</th>
+            <th>Wall (s)<br><span class="muted" style="font-weight:400;">client</span></th>
+            <th>OpenAI (s)<br><span class="muted" style="font-weight:400;">server ~1s</span></th>
             <th>Input</th>
             <th>Output</th>
             <th>Reasoning</th>

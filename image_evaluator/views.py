@@ -20,7 +20,6 @@ from .services import (
     build_api_request_dict,
     complete_benchmark,
     complete_blind_run,
-    default_api_defaults,
     save_error_turn,
     save_success_turn,
     shuffle_models,
@@ -28,6 +27,8 @@ from .services import (
 )
 from .services.api_key import ApiKeyStatus
 from .services.console import console_overview, filter_runs, model_summaries, session_url_name
+from .services.openai_eval import ApiRequestConfig
+from .model_catalog import disabled_labs, model_to_lab_map
 
 SESSION_PENDING_TURN_KEY = "pending_turn_id"
 SESSION_ERROR_KEY = "request_error"
@@ -82,7 +83,17 @@ def _check_api_key(request) -> HttpResponse | None:
     return None
 
 
-def _create_run(*, uploaded, prompt: str, model_order: list[str]) -> EvaluationRun:
+def _api_config_for_run(run: EvaluationRun) -> ApiRequestConfig:
+    return ApiRequestConfig.from_dict(run.api_defaults)
+
+
+def _create_run(
+    *,
+    uploaded,
+    prompt: str,
+    model_order: list[str],
+    api_defaults: dict,
+) -> EvaluationRun:
     size_bytes, width, height = extract_image_metadata(uploaded)
     return EvaluationRun.objects.create(
         image=uploaded,
@@ -93,7 +104,7 @@ def _create_run(*, uploaded, prompt: str, model_order: list[str]) -> EvaluationR
         image_height=height,
         prompt=prompt,
         model_order=model_order,
-        api_defaults=default_api_defaults(),
+        api_defaults=api_defaults,
         status=RunStatus.IN_PROGRESS,
     )
 
@@ -234,7 +245,15 @@ class PrepareView(View):
         if blocked:
             return blocked
         form = PrepareEvaluationForm()
-        return render(request, self.template_name, {"form": form})
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "disabled_labs": disabled_labs(),
+                "model_to_lab": model_to_lab_map(),
+            },
+        )
 
     def post(self, request):
         blocked = _check_api_key(request)
@@ -243,7 +262,15 @@ class PrepareView(View):
 
         form = PrepareEvaluationForm(request.POST, request.FILES)
         if not form.is_valid():
-            return render(request, self.template_name, {"form": form})
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "disabled_labs": disabled_labs(),
+                    "model_to_lab": model_to_lab_map(),
+                },
+            )
 
         uploaded = form.cleaned_data["image"]
         model_order = (
@@ -255,6 +282,7 @@ class PrepareView(View):
             uploaded=uploaded,
             prompt=form.cleaned_data["prompt"],
             model_order=model_order,
+            api_defaults=form.api_defaults_dict(),
         )
         _clear_pending(request)
 
@@ -323,6 +351,7 @@ class EvaluateView(View):
 
         if action == "generate":
             model = run.model_order[current_index]
+            api_config = _api_config_for_run(run)
             started_perf = time.perf_counter()
             request_started_at = datetime.now(timezone.utc)
             try:
@@ -331,6 +360,7 @@ class EvaluateView(View):
                     prompt=run.prompt,
                     image_path=run.image.path,
                     image_content_type=run.image_content_type,
+                    api_config=api_config,
                 )
                 turn = save_success_turn(
                     run=run,
@@ -349,7 +379,11 @@ class EvaluateView(View):
                     request_started_at=request_started_at,
                     request_finished_at=datetime.now(timezone.utc),
                     latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
-                    api_request=build_api_request_dict(model=model, prompt=run.prompt),
+                    api_request=build_api_request_dict(
+                        model=model,
+                        prompt=run.prompt,
+                        api_config=api_config,
+                    ),
                 )
                 request.session.pop(SESSION_PENDING_TURN_KEY, None)
                 request.session[SESSION_ERROR_KEY] = str(exc)
@@ -397,6 +431,54 @@ class EvaluateView(View):
         return redirect("image_evaluator:evaluate", run_id=run.id)
 
 
+def _pending_benchmark_indices(run: EvaluationRun) -> list[int]:
+    return [
+        index
+        for index in range(len(run.model_order))
+        if not run.turns.filter(turn_index=index).exists()
+    ]
+
+
+def _run_benchmark_turn(
+    *,
+    run: EvaluationRun,
+    turn_index: int,
+    model: str,
+    api_config: ApiRequestConfig,
+) -> None:
+    started_perf = time.perf_counter()
+    request_started_at = datetime.now(timezone.utc)
+    try:
+        result = analyze_image(
+            model=model,
+            prompt=run.prompt,
+            image_path=run.image.path,
+            image_content_type=run.image_content_type,
+            api_config=api_config,
+        )
+        save_success_turn(
+            run=run,
+            turn_index=turn_index,
+            model=model,
+            result=result,
+        )
+    except Exception as exc:
+        save_error_turn(
+            run=run,
+            turn_index=turn_index,
+            model=model,
+            error=exc,
+            request_started_at=request_started_at,
+            request_finished_at=datetime.now(timezone.utc),
+            latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
+            api_request=build_api_request_dict(
+                model=model,
+                prompt=run.prompt,
+                api_config=api_config,
+            ),
+        )
+
+
 class BenchmarkView(View):
     template_name = "image_evaluator/benchmark.html"
 
@@ -410,38 +492,46 @@ class BenchmarkView(View):
         if benchmark.status == RunStatus.COMPLETED:
             return redirect("image_evaluator:results", run_id=run.id)
 
-        for turn_index, model in enumerate(run.model_order):
-            if run.turns.filter(turn_index=turn_index).exists():
-                continue
-            started_perf = time.perf_counter()
-            request_started_at = datetime.now(timezone.utc)
-            try:
-                result = analyze_image(
-                    model=model,
-                    prompt=run.prompt,
-                    image_path=run.image.path,
-                    image_content_type=run.image_content_type,
-                )
-                save_success_turn(
-                    run=run,
-                    turn_index=turn_index,
-                    model=model,
-                    result=result,
-                )
-            except Exception as exc:
-                save_error_turn(
-                    run=run,
-                    turn_index=turn_index,
-                    model=model,
-                    error=exc,
-                    request_started_at=request_started_at,
-                    request_finished_at=datetime.now(timezone.utc),
-                    latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
-                    api_request=build_api_request_dict(model=model, prompt=run.prompt),
-                )
+        api_config = _api_config_for_run(run)
+        pending = _pending_benchmark_indices(run)
 
-        complete_benchmark(benchmark)
-        return redirect("image_evaluator:results", run_id=run.id)
+        if not pending:
+            complete_benchmark(benchmark)
+            return redirect("image_evaluator:results", run_id=run.id)
+
+        should_run = run.turn_count == 0 or request.GET.get("continue") == "1"
+        if should_run:
+            turn_index = pending[0]
+            model = run.model_order[turn_index]
+            _run_benchmark_turn(
+                run=run,
+                turn_index=turn_index,
+                model=model,
+                api_config=api_config,
+            )
+            run.refresh_from_db()
+            pending = _pending_benchmark_indices(run)
+            if not pending:
+                complete_benchmark(benchmark)
+                return redirect("image_evaluator:results", run_id=run.id)
+
+        pending = _pending_benchmark_indices(run)
+        next_model = run.model_order[pending[0]] if pending else ""
+        completed_count = run.turn_count
+        total_models = run.total_models
+        return render(
+            request,
+            self.template_name,
+            {
+                "run": run,
+                "benchmark": benchmark,
+                "turns": run.turns.all(),
+                "next_model": next_model,
+                "completed_count": completed_count,
+                "total_models": total_models,
+                "progress_pct": int((completed_count / total_models) * 100) if total_models else 0,
+            },
+        )
 
 
 class ResultsView(View):

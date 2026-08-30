@@ -43,6 +43,7 @@
 
     <dl class="meta-grid">
       <div><dt>Run ID</dt><dd><code class="inline">{{ run.id }}</code></dd></div>
+      {% if run.api_defaults.lab %}<div><dt>Lab</dt><dd>{{ run.api_defaults.lab }}</dd></div>{% endif %}
       <div><dt>Models</dt><dd>{{ run.model_order|join:", " }}</dd></div>
       <div><dt>Image size</dt><dd>{% if run.image_width %}{{ run.image_width }}×{{ run.image_height }}{% else %}—{% endif %}</dd></div>
       <div><dt>File size</dt><dd>{% if run.image_size_bytes %}{{ run.image_size_bytes }} bytes{% else %}—{% endif %}</dd></div>
@@ -56,8 +57,17 @@
     </dl>
 
     {% if run.api_defaults %}
+    <dl class="meta-grid">
+      {% if run.api_defaults.reasoning %}
+      <div><dt>Reasoning effort</dt><dd>{{ run.api_defaults.reasoning.effort|default:"—" }}</dd></div>
+      <div><dt>Reasoning mode</dt><dd>{{ run.api_defaults.reasoning.mode|default:"—" }}</dd></div>
+      {% endif %}
+      <div><dt>Max output tokens</dt><dd>{{ run.api_defaults.max_output_tokens|default:"—" }}</dd></div>
+      <div><dt>Image detail</dt><dd>{{ run.api_defaults.image_detail|default:"—" }}</dd></div>
+      <div><dt>Store</dt><dd>{{ run.api_defaults.store|yesno:"yes,no" }}</dd></div>
+    </dl>
     <details>
-      <summary>API defaults snapshot</summary>
+      <summary>API defaults snapshot (JSON)</summary>
       <code>{{ run.api_defaults|pretty_json }}</code>
     </details>
     {% endif %}

@@ -16,3 +16,10 @@ def pretty_json(value) -> str:
 def short_id(value) -> str:
     text = str(value)
     return text[:8] if len(text) > 8 else text
+
+
+@register.filter
+def get_item(mapping, key):
+    if mapping is None:
+        return ""
+    return mapping.get(key, "")

@@ -102,10 +102,33 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OPENAI_API_KEY = config("OPENAI_API_KEY", default="")
 
+MODEL_LABS = {
+    "openai": {
+        "label": "OpenAI",
+        "enabled": True,
+        "models": [
+            "gpt-5.6-luna",
+            "gpt-5.6-terra",
+            "gpt-5.6-sol",
+        ],
+    },
+    "google": {
+        "label": "Google Gemini",
+        "enabled": False,
+        "models": [],
+    },
+    "deepseek": {
+        "label": "DeepSeek",
+        "enabled": False,
+        "models": [],
+    },
+}
+
 AVAILABLE_MODELS = [
-    "gpt-5.6-luna",
-    "gpt-5.6-terra",
-    "gpt-5.6-sol",
+    model
+    for lab in MODEL_LABS.values()
+    if lab.get("enabled")
+    for model in lab.get("models", [])
 ]
 
 DEFAULT_EVAL_PROMPT = (
@@ -114,6 +137,7 @@ DEFAULT_EVAL_PROMPT = (
 )
 
 OPENAI_DEFAULT_REASONING_EFFORT = "low"
+OPENAI_DEFAULT_REASONING_MODE = "standard"
 OPENAI_DEFAULT_MAX_OUTPUT_TOKENS = 1600
 OPENAI_DEFAULT_IMAGE_DETAIL = "auto"
 OPENAI_DEFAULT_STORE = False
