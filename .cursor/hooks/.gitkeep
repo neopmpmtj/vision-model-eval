@@ -1,0 +1,5 @@
+# Hook scripts
+
+Executable scripts invoked by events defined in `.cursor/hooks.json`.
+
+Run from the project root; use paths like `.cursor/hooks/my-hook.sh`.

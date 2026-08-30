@@ -1,0 +1,11 @@
+# Project rules
+
+Add `.mdc` files here. Example frontmatter:
+
+```yaml
+---
+description: Django conventions for this repo
+globs: **/*.py
+alwaysApply: false
+---
+```

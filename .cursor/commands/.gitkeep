@@ -1,0 +1,5 @@
+# Slash commands
+
+Add command files as `.md` in this directory. Each file becomes a `/command-name` in the agent.
+
+Example: `commands/run-tests.md`

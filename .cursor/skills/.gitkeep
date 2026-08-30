@@ -1,0 +1,10 @@
+# Project skills
+
+Each skill is a directory with a `SKILL.md` file:
+
+```
+skills/
+  my-skill/
+    SKILL.md
+    reference.md   # optional
+```

@@ -1,0 +1,13 @@
+{% extends "image_evaluator/base.html" %}
+
+{% block title %}Running benchmark · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout single">
+  <section class="panel">
+    <h2>Running latency benchmark</h2>
+    <p class="muted">Calling each model sequentially. This page will redirect when finished.</p>
+    <p class="muted">If you are not redirected automatically, <a href="{% url 'image_evaluator:benchmark' run.id %}">click here to continue</a>.</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,5 @@
+# Project subagents
+
+Add custom subagent definitions as `.md` files in this directory.
+
+Example: `agents/django-reviewer.md`

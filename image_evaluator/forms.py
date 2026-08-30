@@ -1,8 +1,20 @@
 from django import forms
 from django.conf import settings
+from django.db import models
+
+
+class RunType(models.TextChoices):
+    BLIND_COMPARISON = "blind_comparison", "Blind comparison (rate responses)"
+    LATENCY_BENCHMARK = "latency_benchmark", "Latency benchmark (no ratings)"
 
 
 class PrepareEvaluationForm(forms.Form):
+    run_type = forms.ChoiceField(
+        label="Session type",
+        choices=RunType.choices,
+        initial=RunType.BLIND_COMPARISON,
+        widget=forms.RadioSelect,
+    )
     image = forms.ImageField(
         label="Upload one image",
         widget=forms.ClearableFileInput(
@@ -19,7 +31,7 @@ class PrepareEvaluationForm(forms.Form):
         choices=[(model, model) for model in settings.AVAILABLE_MODELS],
         widget=forms.CheckboxSelectMultiple,
         initial=list(settings.AVAILABLE_MODELS),
-        help_text="Their order will be randomized and their identities hidden until you finish rating.",
+        help_text="Their order will be randomized in blind mode. Benchmark mode runs them sequentially.",
     )
 
     def clean_models(self):

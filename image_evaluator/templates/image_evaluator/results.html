@@ -5,8 +5,18 @@
 {% block content %}
 <div class="layout single">
   <section class="panel">
-    <h2>Comparison complete — model identities are now revealed.</h2>
-    <p class="muted">Image: {{ run.image_name }}</p>
+    {% if benchmark %}
+      <h2>Latency benchmark complete</h2>
+      <p class="muted">Image: {{ run.image_name }}</p>
+      <p class="muted">
+        Total wall latency: {{ benchmark.total_wall_latency_seconds|floatformat:3 }}s ·
+        Average: {{ benchmark.avg_wall_latency_seconds|floatformat:3 }}s ·
+        Success: {{ benchmark.successful_turn_count }}/{{ benchmark.turn_count_expected }}
+      </p>
+    {% else %}
+      <h2>Comparison complete — model identities are now revealed.</h2>
+      <p class="muted">Image: {{ run.image_name }}</p>
+    {% endif %}
 
     <div style="overflow-x:auto;margin:1rem 0;">
       <table>
@@ -14,25 +24,31 @@
           <tr>
             <th>Sample</th>
             <th>Model</th>
-            <th>Rating</th>
-            <th>Latency (s)</th>
-            <th>Input tokens</th>
-            <th>Output tokens</th>
-            <th>Notes</th>
+            <th>Status</th>
+            {% if not benchmark %}<th>Rating</th>{% endif %}
+            <th>Wall (s)</th>
+            <th>OpenAI (s)</th>
+            <th>Input</th>
+            <th>Output</th>
+            <th>Reasoning</th>
+            {% if not benchmark %}<th>Notes</th>{% endif %}
             <th>Response</th>
           </tr>
         </thead>
         <tbody>
-          {% for rating in ratings %}
+          {% for turn in turns %}
           <tr>
-            <td>{{ rating.sample_label }}</td>
-            <td>{{ rating.model }}</td>
-            <td>{{ rating.rating }}</td>
-            <td>{{ rating.latency_seconds|floatformat:3 }}</td>
-            <td>{{ rating.input_tokens|default:"—" }}</td>
-            <td>{{ rating.output_tokens|default:"—" }}</td>
-            <td>{{ rating.notes|default:"—" }}</td>
-            <td>{{ rating.response|truncatechars:240 }}</td>
+            <td>{{ turn.sample_label }}</td>
+            <td>{{ turn.model }}</td>
+            <td>{{ turn.status }}</td>
+            {% if not benchmark %}<td>{{ turn.rating|default:"—" }}</td>{% endif %}
+            <td>{{ turn.latency_wall_seconds|floatformat:3|default:"—" }}</td>
+            <td>{{ turn.latency_openai_seconds|floatformat:3|default:"—" }}</td>
+            <td>{{ turn.input_tokens|default:"—" }}</td>
+            <td>{{ turn.output_tokens|default:"—" }}</td>
+            <td>{{ turn.reasoning_tokens|default:"—" }}</td>
+            {% if not benchmark %}<td>{{ turn.notes|default:"—" }}</td>{% endif %}
+            <td>{{ turn.response_text|truncatechars:240 }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -40,10 +56,10 @@
     </div>
 
     <div class="actions">
-      <a class="btn" href="{% url 'image_evaluator:download' run.id %}">Download this comparison as CSV</a>
-      <form method="post" action="{% url 'image_evaluator:reset' %}">
+      <a class="btn" href="{% url 'image_evaluator:download' run.id %}">Download CSV</a>
+      <form method="post" action="{% url 'image_evaluator:reset_prepare' %}">
         {% csrf_token %}
-        <button class="btn secondary" type="submit">Start another comparison</button>
+        <button class="btn secondary" type="submit">Start another session</button>
       </form>
     </div>
   </section>

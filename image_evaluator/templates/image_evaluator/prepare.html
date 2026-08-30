@@ -5,9 +5,17 @@
 {% block content %}
 <div class="layout single">
   <section class="panel">
-    <h2>Prepare a comparison</h2>
+    <h2>Prepare a session</h2>
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
+
+      <label>{{ form.run_type.label }}</label>
+      <ul class="checkbox-list">
+        {% for radio in form.run_type %}
+          <li>{{ radio.tag }} <label for="{{ radio.id_for_label }}" style="display:inline;font-weight:400;">{{ radio.choice_label }}</label></li>
+        {% endfor %}
+      </ul>
+      {{ form.run_type.errors }}
 
       <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
       {{ form.image }}
@@ -27,7 +35,7 @@
       {{ form.models.errors }}
 
       <div class="actions">
-        <button class="btn" type="submit">Start blind comparison</button>
+        <button class="btn" type="submit">Start session</button>
       </div>
     </form>
   </section>

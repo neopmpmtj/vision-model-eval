@@ -112,3 +112,8 @@ DEFAULT_EVAL_PROMPT = (
     "Describe this image carefully. Identify the main objects, their relationships, "
     "any visible text, and anything uncertain."
 )
+
+OPENAI_DEFAULT_REASONING_EFFORT = "low"
+OPENAI_DEFAULT_MAX_OUTPUT_TOKENS = 1600
+OPENAI_DEFAULT_IMAGE_DETAIL = "auto"
+OPENAI_DEFAULT_STORE = False
