@@ -1,0 +1,106 @@
+{% extends "image_evaluator/base.html" %}
+{% load console_tags %}
+
+{% block title %}Inspect run · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout wide">
+  <section class="panel">
+    <p class="muted"><a href="{% url 'image_evaluator:console' %}">Console</a> / Run <code class="inline">{{ run.id|short_id }}</code></p>
+
+    <div class="actions" style="margin-top:0;justify-content:space-between;">
+      <h2 style="margin:0;">{{ run.image_name }}</h2>
+      <div class="actions" style="margin-top:0;">
+        {% if run.is_complete %}
+          <a class="btn" href="{% url 'image_evaluator:results' run.id %}">Results</a>
+        {% else %}
+          <a class="btn" href="{{ session_url }}">Continue</a>
+        {% endif %}
+        {% if turns %}
+          <a class="btn secondary" href="{% url 'image_evaluator:download' run.id %}">Download CSV</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin:1rem 0;">
+      <img class="thumb" src="{{ run.image.url }}" alt="{{ run.image_name }}">
+      <div style="flex:1;min-width:240px;">
+        <p>
+          {% if run.is_benchmark %}
+            <span class="badge benchmark">benchmark</span>
+          {% else %}
+            <span class="badge blind">blind</span>
+          {% endif %}
+          <span class="badge {{ run.status }}">{{ run.get_status_display }}</span>
+        </p>
+        <p class="muted">Created {{ run.created_at|date:"Y-m-d H:i:s" }} UTC</p>
+        {% if run.completed_at %}
+          <p class="muted">Completed {{ run.completed_at|date:"Y-m-d H:i:s" }} UTC</p>
+        {% endif %}
+        <p>{{ run.prompt }}</p>
+      </div>
+    </div>
+
+    <dl class="meta-grid">
+      <div><dt>Run ID</dt><dd><code class="inline">{{ run.id }}</code></dd></div>
+      <div><dt>Models</dt><dd>{{ run.model_order|join:", " }}</dd></div>
+      <div><dt>Image size</dt><dd>{% if run.image_width %}{{ run.image_width }}×{{ run.image_height }}{% else %}—{% endif %}</dd></div>
+      <div><dt>File size</dt><dd>{% if run.image_size_bytes %}{{ run.image_size_bytes }} bytes{% else %}—{% endif %}</dd></div>
+      <div><dt>Content type</dt><dd>{{ run.image_content_type }}</dd></div>
+      <div><dt>Turns</dt><dd>{{ run.turn_count }}/{{ run.total_models }}</dd></div>
+      {% if benchmark %}
+      <div><dt>Benchmark total latency</dt><dd>{% if benchmark.total_wall_latency_seconds %}{{ benchmark.total_wall_latency_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
+      <div><dt>Benchmark avg latency</dt><dd>{% if benchmark.avg_wall_latency_seconds %}{{ benchmark.avg_wall_latency_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
+      <div><dt>Benchmark success/fail</dt><dd>{{ benchmark.successful_turn_count }}/{{ benchmark.failed_turn_count }}</dd></div>
+      {% endif %}
+    </dl>
+
+    {% if run.api_defaults %}
+    <details>
+      <summary>API defaults snapshot</summary>
+      <code>{{ run.api_defaults|pretty_json }}</code>
+    </details>
+    {% endif %}
+
+    <h3>Turns</h3>
+    {% if turns %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Sample</th>
+            <th>Model</th>
+            <th>Status</th>
+            {% if not run.is_benchmark %}<th>Rating</th>{% endif %}
+            <th>Wall (s)</th>
+            <th>OpenAI (s)</th>
+            <th>Tokens</th>
+            <th>Generated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for turn in turns %}
+          <tr>
+            <td>{{ turn.turn_index }}</td>
+            <td>{{ turn.sample_label }}</td>
+            <td>{{ turn.model }}</td>
+            <td><span class="badge {{ turn.status }}">{{ turn.status }}</span></td>
+            {% if not run.is_benchmark %}<td>{{ turn.rating|default:"—" }}</td>{% endif %}
+            <td>{{ turn.latency_wall_seconds|floatformat:3|default:"—" }}</td>
+            <td>{{ turn.latency_openai_seconds|floatformat:3|default:"—" }}</td>
+            <td>{{ turn.total_tokens|default:"—" }}</td>
+            <td>{{ turn.generated_at|date:"Y-m-d H:i" }}</td>
+            <td><a class="table-link" href="{% url 'image_evaluator:inspect_turn' run.id turn.turn_index %}">Details</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">No turns recorded yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

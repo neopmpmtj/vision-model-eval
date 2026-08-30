@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone as django_timezone
 from django.views import View
 
@@ -26,6 +27,7 @@ from .services import (
     validate_api_key,
 )
 from .services.api_key import ApiKeyStatus
+from .services.console import console_overview, filter_runs, model_summaries, session_url_name
 
 SESSION_PENDING_TURN_KEY = "pending_turn_id"
 SESSION_ERROR_KEY = "request_error"
@@ -171,6 +173,57 @@ def _turn_csv_row(*, run: EvaluationRun, turn: EvaluationTurn) -> dict:
         "usage_raw": turn.usage_raw,
         "response": turn.response_text,
     }
+
+
+class ConsoleView(View):
+    template_name = "image_evaluator/console.html"
+
+    def get(self, request):
+        kind = request.GET.get("kind", "")
+        status = request.GET.get("status", "")
+        return render(
+            request,
+            self.template_name,
+            {
+                "overview": console_overview(),
+                "model_summaries": model_summaries(),
+                "runs": filter_runs(kind=kind, status=status),
+                "kind_filter": kind,
+                "status_filter": status,
+            },
+        )
+
+
+class InspectRunView(View):
+    template_name = "image_evaluator/inspect_run.html"
+
+    def get(self, request, run_id):
+        run = get_object_or_404(EvaluationRun.objects.select_related("latency_benchmark"), pk=run_id)
+        turns = run.turns.all()
+        benchmark = getattr(run, "latency_benchmark", None)
+        return render(
+            request,
+            self.template_name,
+            {
+                "run": run,
+                "turns": turns,
+                "benchmark": benchmark,
+                "session_url": reverse(session_url_name(run), kwargs={"run_id": run.id}),
+            },
+        )
+
+
+class InspectTurnView(View):
+    template_name = "image_evaluator/inspect_turn.html"
+
+    def get(self, request, run_id, turn_index):
+        run = get_object_or_404(EvaluationRun, pk=run_id)
+        turn = get_object_or_404(run.turns, turn_index=turn_index)
+        return render(
+            request,
+            self.template_name,
+            {"run": run, "turn": turn},
+        )
 
 
 class PrepareView(View):
@@ -412,10 +465,9 @@ class ResultsView(View):
 class DownloadCsvView(View):
     def get(self, request, run_id):
         run = get_object_or_404(EvaluationRun, pk=run_id)
-        if not run.is_complete:
-            if run.is_benchmark:
-                return redirect("image_evaluator:benchmark", run_id=run.id)
-            return redirect("image_evaluator:evaluate", run_id=run.id)
+        turns = run.turns.all()
+        if not turns.exists():
+            return redirect("image_evaluator:inspect", run_id=run.id)
 
         buffer = io.StringIO()
         fields = _turn_csv_fields()

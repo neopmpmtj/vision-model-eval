@@ -1,0 +1,83 @@
+{% extends "image_evaluator/base.html" %}
+{% load console_tags %}
+
+{% block title %}Turn {{ turn.turn_index }} · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout wide">
+  <section class="panel">
+    <p class="muted">
+      <a href="{% url 'image_evaluator:console' %}">Console</a> /
+      <a href="{% url 'image_evaluator:inspect' run.id %}">Run {{ run.id|short_id }}</a> /
+      Turn {{ turn.turn_index }}
+    </p>
+
+    <h2>{{ turn.sample_label }} — {{ turn.model }}</h2>
+    <p>
+      <span class="badge {{ turn.status }}">{{ turn.status }}</span>
+      {% if turn.rating %}<span class="badge completed">Rating {{ turn.rating }}/5</span>{% endif %}
+    </p>
+
+    <dl class="meta-grid">
+      <div><dt>Turn index</dt><dd>{{ turn.turn_index }}</dd></div>
+      <div><dt>Response model</dt><dd>{{ turn.response_model|default:"—" }}</dd></div>
+      <div><dt>OpenAI response ID</dt><dd>{{ turn.openai_response_id|default:"—" }}</dd></div>
+      <div><dt>OpenAI status</dt><dd>{{ turn.openai_status|default:"—" }}</dd></div>
+      <div><dt>Request started</dt><dd>{% if turn.request_started_at %}{{ turn.request_started_at|date:"Y-m-d H:i:s" }} UTC{% else %}—{% endif %}</dd></div>
+      <div><dt>Request finished</dt><dd>{% if turn.request_finished_at %}{{ turn.request_finished_at|date:"Y-m-d H:i:s" }} UTC{% else %}—{% endif %}</dd></div>
+      <div><dt>Wall latency</dt><dd>{% if turn.latency_wall_seconds %}{{ turn.latency_wall_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
+      <div><dt>OpenAI latency</dt><dd>{% if turn.latency_openai_seconds %}{{ turn.latency_openai_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
+      <div><dt>TTFB</dt><dd>{% if turn.time_to_first_token_seconds %}{{ turn.time_to_first_token_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
+      <div><dt>Input tokens</dt><dd>{{ turn.input_tokens|default:"—" }}</dd></div>
+      <div><dt>Output tokens</dt><dd>{{ turn.output_tokens|default:"—" }}</dd></div>
+      <div><dt>Total tokens</dt><dd>{{ turn.total_tokens|default:"—" }}</dd></div>
+      <div><dt>Reasoning tokens</dt><dd>{{ turn.reasoning_tokens|default:"—" }}</dd></div>
+      <div><dt>Cached tokens</dt><dd>{{ turn.cached_tokens|default:"—" }}</dd></div>
+      <div><dt>Cache-write tokens</dt><dd>{{ turn.cache_write_tokens|default:"—" }}</dd></div>
+      <div><dt>Rated at</dt><dd>{% if turn.rated_at %}{{ turn.rated_at|date:"Y-m-d H:i:s" }} UTC{% else %}—{% endif %}</dd></div>
+      <div><dt>Generated at</dt><dd>{{ turn.generated_at|date:"Y-m-d H:i:s" }} UTC</dd></div>
+    </dl>
+
+    {% if turn.notes %}
+    <h3>Notes</h3>
+    <div class="response-box">{{ turn.notes }}</div>
+    {% endif %}
+
+    {% if turn.status == 'error' %}
+    <h3>Error</h3>
+    <p><strong>{{ turn.error_type }}</strong></p>
+    <div class="response-box">{{ turn.error_message }}</div>
+    {% endif %}
+
+    {% if turn.response_text %}
+    <h3>Response</h3>
+    <div class="response-box">{{ turn.response_text }}</div>
+    {% endif %}
+
+    {% if turn.api_request %}
+    <details>
+      <summary>API request</summary>
+      <code>{{ turn.api_request|pretty_json }}</code>
+    </details>
+    {% endif %}
+
+    {% if turn.api_response %}
+    <details>
+      <summary>API response</summary>
+      <code>{{ turn.api_response|pretty_json }}</code>
+    </details>
+    {% endif %}
+
+    {% if turn.usage_raw %}
+    <details>
+      <summary>Usage raw</summary>
+      <code>{{ turn.usage_raw|pretty_json }}</code>
+    </details>
+    {% endif %}
+
+    <div class="actions">
+      <a class="btn secondary" href="{% url 'image_evaluator:inspect' run.id %}">Back to run</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

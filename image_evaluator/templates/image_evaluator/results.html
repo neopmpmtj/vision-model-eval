@@ -3,7 +3,7 @@
 {% block title %}Results · OpenAI Image Evaluator{% endblock %}
 
 {% block content %}
-<div class="layout single">
+<div class="layout wide">
   <section class="panel">
     {% if benchmark %}
       <h2>Latency benchmark complete</h2>
@@ -17,6 +17,11 @@
       <h2>Comparison complete — model identities are now revealed.</h2>
       <p class="muted">Image: {{ run.image_name }}</p>
     {% endif %}
+
+    <div style="display:flex;gap:1rem;align-items:flex-start;margin:1rem 0;">
+      <img class="thumb" src="{{ run.image.url }}" alt="{{ run.image_name }}">
+      <p class="muted" style="margin:0;">{{ run.prompt }}</p>
+    </div>
 
     <div style="overflow-x:auto;margin:1rem 0;">
       <table>
@@ -33,6 +38,7 @@
             <th>Reasoning</th>
             {% if not benchmark %}<th>Notes</th>{% endif %}
             <th>Response</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -49,6 +55,7 @@
             <td>{{ turn.reasoning_tokens|default:"—" }}</td>
             {% if not benchmark %}<td>{{ turn.notes|default:"—" }}</td>{% endif %}
             <td>{{ turn.response_text|truncatechars:240 }}</td>
+            <td><a class="table-link" href="{% url 'image_evaluator:inspect_turn' run.id turn.turn_index %}">Details</a></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -57,10 +64,9 @@
 
     <div class="actions">
       <a class="btn" href="{% url 'image_evaluator:download' run.id %}">Download CSV</a>
-      <form method="post" action="{% url 'image_evaluator:reset_prepare' %}">
-        {% csrf_token %}
-        <button class="btn secondary" type="submit">Start another session</button>
-      </form>
+      <a class="btn secondary" href="{% url 'image_evaluator:inspect' run.id %}">Full inspect</a>
+      <a class="btn secondary" href="{% url 'image_evaluator:console' %}">Console</a>
+      <a class="btn secondary" href="{% url 'image_evaluator:prepare' %}">New session</a>
     </div>
   </section>
 </div>

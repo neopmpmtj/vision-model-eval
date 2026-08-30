@@ -26,11 +26,25 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/
+Open http://127.0.0.1:8000/ — the **console** lists all runs with cross-run stats. Start a new session at http://127.0.0.1:8000/new/
+
+## URLs
+
+| Path | Purpose |
+|------|---------|
+| `/` | Console hub — run list, filters, cross-run stats |
+| `/new/` | New session (upload image, choose models) |
+| `/run/<uuid>/` | Blind evaluate (generate + rate) |
+| `/run/<uuid>/benchmark/` | Latency benchmark (auto-run all models) |
+| `/run/<uuid>/results/` | Completed-session results |
+| `/run/<uuid>/inspect/` | Full run inspector (any status) |
+| `/run/<uuid>/turn/<index>/` | Turn detail (JSON, latencies, tokens) |
+| `/run/<uuid>/download/` | CSV export (partial runs included) |
+| `/admin/` | Django admin (requires superuser) |
 
 ## Session types
 
-Choose a session type on the prepare page:
+Choose a session type on the new-session page (`/new/`):
 
 | Type | Purpose |
 |------|---------|
@@ -71,7 +85,7 @@ Partial and abandoned runs are kept in the database.
 
 ## CSV export
 
-Completed runs can be downloaded as CSV from the results page. Exports include all turn-level fields plus `benchmark_id` when the run was a latency benchmark.
+Runs with at least one turn can be downloaded as CSV from the results or inspect page. Exports include all turn-level fields plus `benchmark_id` when the run was a latency benchmark.
 
 ## API key validation
 

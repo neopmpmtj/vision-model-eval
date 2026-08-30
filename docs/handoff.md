@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 2026-08-30 09:03 (UTC+1)
+Last updated: 2026-08-30 09:15 (UTC+1)
 
 ## Project
 
@@ -25,12 +25,14 @@ No `docs/PROJECT-PLAN.md` yet.
 - Migrations through `0002_comprehensive_metadata` (data migrated from `EvaluationRating`)
 - `.cursor/` folder scaffold
 - `AGENTS.md` at repo root
+- **Console dashboard** at `/` — run list, filters, cross-run stats, per-model summaries
+- **Inspect pages** at `/run/<id>/inspect/` and `/run/<id>/turn/<n>/` — full metadata without Django admin
+- Prepare form moved to `/new/`; site nav on all pages
 
 ## Not done
 
 - Streaming / TTFB measurement
 - User authentication
-- Analytics across runs
 - Production deploy (PostgreSQL, static files, etc.)
 - Formal phased project plan
 
@@ -40,10 +42,11 @@ No `docs/PROJECT-PLAN.md` yet.
 - No `mode` on `EvaluationRun` — benchmark vs blind inferred from `LatencyBenchmark` presence
 - Turns saved immediately; ratings optional on `EvaluationTurn`
 - Benchmark runs all models in one request cycle on `/run/<id>/benchmark/`
+- `/` is the console hub; `/new/` is the prepare form (URL name `prepare` unchanged)
 
 ## Next (suggested)
 
-- Run real eval/benchmark sessions and inspect data via admin or CSV
+- Run real eval/benchmark sessions and use the console to compare across runs
 - Add `.cursor/rules/` for Django/OpenAI conventions if patterns stabilize
 - Add `docs/PROJECT-PLAN.md` when scope grows beyond eval + latency tooling
 
@@ -57,6 +60,12 @@ python manage.py runserver
 ```
 
 ## Session log
+
+### 2026-08-30 09:15 (UTC+1)
+
+- Added console dashboard (`/`), inspect run/turn pages, site nav
+- Moved prepare form to `/new/`; CSV export works for partial runs
+- Tests in `test_console.py`; updated README and handoff
 
 ### 2026-08-30 09:03 (UTC+1)
 

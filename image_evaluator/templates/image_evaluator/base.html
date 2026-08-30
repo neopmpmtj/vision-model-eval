@@ -30,6 +30,15 @@
       border-bottom: 1px solid var(--border);
       padding: 1.25rem 1.5rem;
     }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
     header.app-header h1 {
       margin: 0 0 0.25rem;
       font-size: 1.5rem;
@@ -37,6 +46,27 @@
     header.app-header p {
       margin: 0;
       color: var(--muted);
+    }
+    .site-nav {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .site-nav a {
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .site-nav a:hover { background: #f0f2f5; }
+    .site-nav a.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
     }
     .layout {
       display: grid;
@@ -49,6 +79,10 @@
     .layout.single {
       grid-template-columns: 1fr;
       max-width: 720px;
+    }
+    .layout.wide {
+      grid-template-columns: 1fr;
+      max-width: 1200px;
     }
     .panel {
       background: var(--surface);
@@ -206,6 +240,95 @@
       min-width: 1.5rem;
       font-weight: 700;
     }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+    .stat-card {
+      background: var(--sidebar);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+    .stat-card .value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .stat-card .label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.15rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .badge.completed { background: #e7f7ee; color: var(--ok); }
+    .badge.in_progress { background: #e8f0fe; color: var(--accent); }
+    .badge.abandoned { background: #fde8e8; color: var(--danger); }
+    .badge.success { background: #e7f7ee; color: var(--ok); }
+    .badge.error { background: #fde8e8; color: var(--danger); }
+    .badge.blind { background: #f3e8ff; color: #6b21a8; }
+    .badge.benchmark { background: #fff7ed; color: #c2410c; }
+    .filter-pills {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0 1rem;
+    }
+    .filter-pills a {
+      text-decoration: none;
+      color: var(--text);
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      background: #fff;
+    }
+    .filter-pills a:hover { background: #f0f2f5; }
+    .filter-pills a.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem 1.5rem;
+      margin: 1rem 0;
+    }
+    .meta-grid dt {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .meta-grid dd {
+      margin: 0.15rem 0 0;
+    }
+    .thumb {
+      max-width: 200px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    code.inline {
+      display: inline;
+      padding: 0.1rem 0.35rem;
+      font-size: 0.85rem;
+    }
+    .table-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .table-link:hover { text-decoration: underline; }
     @media (max-width: 800px) {
       .layout { grid-template-columns: 1fr; }
     }
@@ -214,8 +337,16 @@
 </head>
 <body>
   <header class="app-header">
-    <h1>OpenAI Image Understanding Evaluator</h1>
-    <p>One image · one fixed prompt · several OpenAI models · your blind ratings</p>
+    <div class="header-inner">
+      <div>
+        <h1>OpenAI Image Understanding Evaluator</h1>
+        <p>One image · one fixed prompt · several OpenAI models · your blind ratings</p>
+      </div>
+      <nav class="site-nav" aria-label="Main">
+        <a href="{% url 'image_evaluator:console' %}"{% if request.resolver_match.url_name == 'console' %} class="active"{% endif %}>Console</a>
+        <a href="{% url 'image_evaluator:prepare' %}"{% if request.resolver_match.url_name == 'prepare' %} class="active"{% endif %}>New session</a>
+      </nav>
+    </div>
   </header>
   {% if messages %}
   <ul class="messages" style="max-width:1100px;margin:1rem auto 0;padding:0 1.5rem;">

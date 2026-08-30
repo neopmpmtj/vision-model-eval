@@ -19,13 +19,13 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 - API key validation on prepare page (free `models.list()`); live tests include billable vision probe (`@tag('openai')`)
 - `python-decouple` for `.env` at **project root** (not `scripts/openai-image-evaluator/.env`)
 - `.cursor/` scaffold (rules, skills, agents, commands, hooks)
-- Unit tests: `image_evaluator.tests.test_api_key`, `image_evaluator.tests.test_metadata`
+- Unit tests: `image_evaluator.tests.test_api_key`, `image_evaluator.tests.test_metadata`, `image_evaluator.tests.test_console`
+- Console dashboard at `/`, inspect pages, site nav; prepare at `/new/`
 
 **Not done / deferred:**
 
 - Streaming / TTFB (`time_to_first_token_seconds` column exists, always null)
 - User authentication
-- Cross-run analytics dashboard
 - Background jobs for benchmark runs (sequential in-request is intentional)
 - Production deployment hardening (PostgreSQL, `DEBUG=False`, etc.)
 - Formal project plan document
@@ -63,10 +63,13 @@ Run type: benchmark if `run.latency_benchmark` exists; otherwise blind compariso
 
 | Path | View |
 |------|------|
-| `/` | Prepare (session type + upload) |
+| `/` | Console (run list + stats) |
+| `/new/` | Prepare (session type + upload) |
 | `/run/<uuid>/` | Blind evaluate (generate + rate) |
 | `/run/<uuid>/benchmark/` | Auto-run all models |
 | `/run/<uuid>/results/` | Results table + CSV download |
+| `/run/<uuid>/inspect/` | Full run inspector (any status) |
+| `/run/<uuid>/turn/<index>/` | Turn detail (JSON + metadata) |
 
 ### Prototype (do not extend unless asked)
 

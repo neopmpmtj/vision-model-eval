@@ -1,0 +1,135 @@
+{% extends "image_evaluator/base.html" %}
+{% load console_tags %}
+
+{% block title %}Console · OpenAI Image Evaluator{% endblock %}
+
+{% block content %}
+<div class="layout wide">
+  <section class="panel">
+    <div class="actions" style="margin-top:0;justify-content:space-between;">
+      <h2 style="margin:0;">Console</h2>
+      <a class="btn" href="{% url 'image_evaluator:prepare' %}">New session</a>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="value">{{ overview.run_count }}</div>
+        <div class="label">Runs</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{{ overview.in_progress }}</div>
+        <div class="label">In progress</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{{ overview.completed }}</div>
+        <div class="label">Completed</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{{ overview.abandoned }}</div>
+        <div class="label">Abandoned</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{{ overview.turn_count }}</div>
+        <div class="label">Turns</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{{ overview.error_count }}</div>
+        <div class="label">Errors</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{% if overview.avg_wall_latency %}{{ overview.avg_wall_latency|floatformat:2 }}s{% else %}—{% endif %}</div>
+        <div class="label">Avg wall latency</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{{ overview.total_tokens }}</div>
+        <div class="label">Total tokens</div>
+      </div>
+    </div>
+
+    {% if model_summaries %}
+    <h3>By model</h3>
+    <div style="overflow-x:auto;margin-bottom:1.5rem;">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Turns</th>
+            <th>Success</th>
+            <th>Errors</th>
+            <th>Avg latency</th>
+            <th>Avg rating</th>
+            <th>Tokens</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in model_summaries %}
+          <tr>
+            <td>{{ row.model }}</td>
+            <td>{{ row.turns }}</td>
+            <td>{{ row.successes }}</td>
+            <td>{{ row.errors }}</td>
+            <td>{% if row.avg_latency %}{{ row.avg_latency|floatformat:3 }}s{% else %}—{% endif %}</td>
+            <td>{% if row.avg_rating %}{{ row.avg_rating|floatformat:1 }}{% else %}—{% endif %}</td>
+            <td>{{ row.total_tokens|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <h3>All runs</h3>
+    <div class="filter-pills">
+      <a href="{% url 'image_evaluator:console' %}"{% if not kind_filter and not status_filter %} class="active"{% endif %}>All</a>
+      <a href="{% url 'image_evaluator:console' %}?kind=blind"{% if kind_filter == 'blind' %} class="active"{% endif %}>Blind</a>
+      <a href="{% url 'image_evaluator:console' %}?kind=benchmark"{% if kind_filter == 'benchmark' %} class="active"{% endif %}>Benchmark</a>
+      <a href="{% url 'image_evaluator:console' %}?status=in_progress"{% if status_filter == 'in_progress' %} class="active"{% endif %}>In progress</a>
+      <a href="{% url 'image_evaluator:console' %}?status=completed"{% if status_filter == 'completed' %} class="active"{% endif %}>Completed</a>
+      <a href="{% url 'image_evaluator:console' %}?status=abandoned"{% if status_filter == 'abandoned' %} class="active"{% endif %}>Abandoned</a>
+    </div>
+
+    {% if runs %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>ID</th>
+            <th>Image</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Latency</th>
+            <th>Tokens</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+          <tr>
+            <td>{{ run.created_at|date:"Y-m-d H:i" }}</td>
+            <td><code class="inline">{{ run.id|short_id }}</code></td>
+            <td>{{ run.image_name|truncatechars:30 }}</td>
+            <td>
+              {% if run.is_benchmark %}
+                <span class="badge benchmark">benchmark</span>
+              {% else %}
+                <span class="badge blind">blind</span>
+              {% endif %}
+            </td>
+            <td><span class="badge {{ run.status }}">{{ run.get_status_display }}</span></td>
+            <td>{{ run.n_turns }}/{{ run.total_models }}{% if not run.is_benchmark %} · {{ run.n_rated }} rated{% endif %}</td>
+            <td>{% if run.avg_latency %}{{ run.avg_latency|floatformat:3 }}s{% else %}—{% endif %}</td>
+            <td>{{ run.sum_tokens|default:"—" }}</td>
+            <td><a class="table-link" href="{% url 'image_evaluator:inspect' run.id %}">Inspect</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">No runs yet. <a href="{% url 'image_evaluator:prepare' %}">Start a new session</a>.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
