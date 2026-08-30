@@ -7,7 +7,11 @@ from django.urls import reverse
 from PIL import Image
 
 from image_evaluator.models import EvaluationRun, EvaluationTurn, TurnStatus
-from image_evaluator.prompt_presets import preset_texts
+from image_evaluator.prompt_presets import (
+    ComposeEvalTextError,
+    compose_eval_text,
+    preset_texts,
+)
 from image_evaluator.services.api_key import ApiKeyStatus
 from image_evaluator.views import PrepareView
 
@@ -29,7 +33,6 @@ def base_prepare_data(**overrides):
         "run_type": "blind_comparison",
         "lab": "openai",
         "prompt_preset": "describe",
-        "prompt": "describe",
         "models": ["gpt-5.6-luna", "gpt-5.6-terra"],
         "reasoning_effort": "low",
         "reasoning_mode": "standard",
@@ -40,31 +43,81 @@ def base_prepare_data(**overrides):
     return data
 
 
+class ComposeEvalTextTests(TestCase):
+    def test_default_preset_image_only_user_prompt(self):
+        instructions, user_prompt = compose_eval_text(
+            omit_instructions=False,
+            preset_id="describe",
+            additional="",
+        )
+        self.assertEqual(instructions, preset_texts()["describe"])
+        self.assertEqual(user_prompt, "")
+
+    def test_appends_additional_to_preset(self):
+        instructions, user_prompt = compose_eval_text(
+            omit_instructions=False,
+            preset_id="ocr",
+            additional="Focus on the license plate.",
+        )
+        self.assertTrue(instructions.startswith(preset_texts()["ocr"]))
+        self.assertIn("Focus on the license plate.", instructions)
+        self.assertEqual(user_prompt, "")
+
+    def test_omit_sends_additional_as_user_prompt(self):
+        instructions, user_prompt = compose_eval_text(
+            omit_instructions=True,
+            preset_id="describe",
+            additional="Is there a stop sign? Answer yes or no.",
+        )
+        self.assertEqual(instructions, "")
+        self.assertEqual(user_prompt, "Is there a stop sign? Answer yes or no.")
+
+    def test_omit_requires_additional(self):
+        with self.assertRaises(ComposeEvalTextError):
+            compose_eval_text(omit_instructions=True, preset_id="describe", additional="  ")
+
+
 class PromptPresetTests(TestCase):
     @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
-    def test_prepare_page_shows_preset_labels(self, _mock_key):
+    def test_prepare_page_shows_system_instruction_controls(self, _mock_key):
         response = Client().get(reverse("image_evaluator:prepare"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Prompt preset")
+        self.assertContains(response, "System instructions")
+        self.assertContains(response, "Omit system instructions")
         self.assertContains(response, "Describe (default)")
         self.assertContains(response, "OCR / text extraction")
-        self.assertContains(response, "prompt-preset-texts")
+        self.assertNotContains(response, ">Custom<")
 
     @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
-    def test_custom_prompt_text_persisted_not_preset_body(self, _mock_key):
-        custom_prompt = "Only count red objects."
-        data = base_prepare_data(
-            prompt_preset="ocr",
-            prompt=custom_prompt,
-        )
+    def test_default_describe_persists_as_instructions(self, _mock_key):
+        request = RequestFactory().post(reverse("image_evaluator:prepare"), base_prepare_data())
+        request.FILES["image"] = make_test_image()
+        request.session = {}
+        response = PrepareView.as_view()(request)
+        self.assertEqual(response.status_code, 302)
+        run = EvaluationRun.objects.latest("created_at")
+        self.assertEqual(run.instructions, preset_texts()["describe"])
+        self.assertEqual(run.user_prompt, "")
+        self.assertFalse(run.api_defaults["omit_instructions"])
+        self.assertEqual(run.api_defaults["prompt_preset"], "describe")
+
+    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    def test_omit_persists_user_prompt_only(self, _mock_key):
+        additional = "Is there a cat? Answer yes or no."
+        data = base_prepare_data(omit_instructions="on", additional=additional)
         request = RequestFactory().post(reverse("image_evaluator:prepare"), data)
         request.FILES["image"] = make_test_image()
         request.session = {}
         response = PrepareView.as_view()(request)
         self.assertEqual(response.status_code, 302)
         run = EvaluationRun.objects.latest("created_at")
-        self.assertEqual(run.prompt, custom_prompt)
-        self.assertNotEqual(run.prompt, preset_texts()["ocr"])
+        self.assertEqual(run.instructions, "")
+        self.assertEqual(run.user_prompt, additional)
+        self.assertTrue(run.api_defaults["omit_instructions"])
+
+        inspect = Client().get(reverse("image_evaluator:inspect", kwargs={"run_id": run.id}))
+        self.assertContains(inspect, additional)
+        self.assertContains(inspect, "User prompt")
 
     @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
     def test_omitted_description_defaults_to_blank(self, _mock_key):
@@ -93,9 +146,10 @@ class PromptPresetTests(TestCase):
         self.assertContains(inspect, description)
 
     @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
-    def test_csv_includes_session_description(self, _mock_key):
+    def test_csv_includes_instructions_and_user_prompt(self, _mock_key):
         description = "Compare terra vs sol on receipts"
-        data = base_prepare_data(description=description)
+        additional = "Is there a stop sign?"
+        data = base_prepare_data(description=description, omit_instructions="on", additional=additional)
         request = RequestFactory().post(reverse("image_evaluator:prepare"), data)
         request.FILES["image"] = make_test_image()
         request.session = {}
@@ -114,3 +168,6 @@ class PromptPresetTests(TestCase):
         content = response.content.decode("utf-8")
         self.assertIn("session_description", content)
         self.assertIn(description, content)
+        self.assertIn("instructions", content)
+        self.assertIn("user_prompt", content)
+        self.assertIn(additional, content)

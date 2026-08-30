@@ -9,8 +9,9 @@ from image_evaluator.model_catalog import (
     models_for_lab,
 )
 from image_evaluator.prompt_presets import (
+    ComposeEvalTextError,
+    compose_eval_text,
     default_preset_id,
-    default_prompt_text,
     preset_choices,
 )
 from image_evaluator.services.openai_eval import ApiRequestConfig
@@ -70,15 +71,23 @@ class PrepareEvaluationForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 2}),
         help_text="Optional. What this session is for — used to find it later.",
     )
+    omit_instructions = forms.BooleanField(
+        label="Omit system instructions",
+        required=False,
+        initial=False,
+        help_text="Send only additional text as the user prompt (for short yes/no questions).",
+    )
     prompt_preset = forms.ChoiceField(
-        label="Prompt preset",
+        label="System instructions",
         choices=[],
         initial=default_preset_id,
+        help_text="Sent as Responses API instructions (system/developer message).",
     )
-    prompt = forms.CharField(
-        label="Prompt used for every model",
-        widget=forms.Textarea(attrs={"rows": 4}),
-        initial=default_prompt_text,
+    additional = forms.CharField(
+        label="Additional instructions",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Appended to the preset when system instructions are on. Required when they are omitted.",
     )
     models = forms.MultipleChoiceField(
         label="Models to compare",
@@ -157,14 +166,28 @@ class PrepareEvaluationForm(forms.Form):
         preset_id = self.cleaned_data["prompt_preset"]
         valid_ids = {choice[0] for choice in preset_choices()}
         if preset_id not in valid_ids:
-            raise forms.ValidationError("Select a valid prompt preset.")
+            raise forms.ValidationError("Select a valid system-instruction preset.")
         return preset_id
 
-    def clean_prompt(self):
-        prompt = self.cleaned_data["prompt"].strip()
-        if not prompt:
-            raise forms.ValidationError("Enter a prompt.")
-        return prompt
+    def clean_additional(self):
+        return self.cleaned_data["additional"].strip()
+
+    def clean(self):
+        cleaned = super().clean()
+        omit = cleaned.get("omit_instructions")
+        preset_id = cleaned.get("prompt_preset") or default_preset_id()
+        additional = cleaned.get("additional", "")
+        try:
+            instructions, user_prompt = compose_eval_text(
+                omit_instructions=bool(omit),
+                preset_id=preset_id,
+                additional=additional,
+            )
+        except ComposeEvalTextError as exc:
+            raise forms.ValidationError(str(exc)) from exc
+        cleaned["instructions"] = instructions
+        cleaned["user_prompt"] = user_prompt
+        return cleaned
 
     def api_defaults_dict(self) -> dict:
         config = ApiRequestConfig(
@@ -175,6 +198,8 @@ class PrepareEvaluationForm(forms.Form):
             image_detail=self.cleaned_data["image_detail"],
         ).to_dict()
         config["lab"] = self.cleaned_data["lab"]
+        config["omit_instructions"] = bool(self.cleaned_data["omit_instructions"])
+        config["prompt_preset"] = self.cleaned_data["prompt_preset"]
         return config
 
 

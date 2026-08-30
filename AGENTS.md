@@ -1,6 +1,6 @@
 # Vision Model Eval — Agent instructions
 
-Django 5.2 + SQLite app for **blind comparison** and **latency benchmarking** of OpenAI vision models on a single image and prompt. Per-turn metadata (latencies, tokens, API request/response JSON) is persisted in SQLite. No user authentication.
+Django 5.2 + SQLite app for **blind comparison** and **latency benchmarking** of OpenAI vision models on a single image with optional system instructions and user prompt. Per-turn metadata (latencies, tokens, API request/response JSON) is persisted in SQLite. No user authentication.
 
 **▶ Read [`docs/handoff.md`](docs/handoff.md) first** — condensed state, locked decisions, and the suggested next task. Then [`README.md`](README.md) for setup, data model, and tests.
 
@@ -19,8 +19,9 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 - API key validation on prepare page (free `models.list()`); live tests include billable vision probe (`@tag('openai')`)
 - `python-decouple` for `.env` at **project root** (not `scripts/openai-image-evaluator/.env`)
 - `.cursor/` scaffold (rules, skills, agents, commands, hooks)
-- Unit tests: `image_evaluator.tests.test_api_key`, `image_evaluator.tests.test_metadata`, `image_evaluator.tests.test_console`
+- Unit tests: `test_api_key`, `test_metadata`, `test_console`, `test_api_defaults`, `test_prompt_presets`
 - Console dashboard at `/`, inspect pages, site nav; prepare at `/new/`
+- System-instruction presets + omit checkbox; `EvaluationRun.instructions` / `user_prompt` / `description`
 
 **Not done / deferred:**
 
@@ -29,6 +30,7 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 - Background jobs for benchmark runs (stepped in-browser flow is intentional)
 - Production deployment hardening (PostgreSQL, `DEBUG=False`, etc.)
 - Formal project plan document
+- Prompt library (save/reuse named prompts) and vector search on session descriptions
 
 **Next (suggested):** use the app for real eval runs; add `docs/PROJECT-PLAN.md` only when scope grows. Consider project-specific `.cursor/rules/` for Django/OpenAI conventions.
 
@@ -44,7 +46,7 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 ### Data model
 
 ```text
-EvaluationRun     image, prompt, model_order, api_defaults, image metadata, status
+EvaluationRun     image, instructions, user_prompt, description, model_order, api_defaults, image metadata, status
     ├── EvaluationTurn       one row per API call (metadata + optional rating)
     └── LatencyBenchmark     OneToOne FK; benchmark sessions only (no mode enum on Run)
 ```
@@ -55,9 +57,10 @@ Run type: benchmark if `run.latency_benchmark` exists; otherwise blind compariso
 
 | Module | Role |
 |--------|------|
-| `openai_eval.py` | `analyze_image()`, `ApiRequestConfig`, `AnalysisResult` |
+| `openai_eval.py` | `analyze_image(instructions, user_prompt)`, `ApiRequestConfig`, `AnalysisResult` |
 | `api_key.py` | `validate_api_key()`, `run_billable_probe()` |
-| `turns.py` | `save_success_turn()`, `save_error_turn()`, benchmark completion |
+| `turns.py` | `save_success_turn()`, `save_error_turn()`, `build_api_request_dict` |
+| `prompt_presets.py` (app root) | `compose_eval_text()`, preset catalog helpers |
 
 ### URLs
 
@@ -84,7 +87,8 @@ views.py  →  services/  →  models.py  →  SQLite
 - **Business logic in `image_evaluator/services/`**, not in views or templates
 - **Persist turns on generate** (success or error); ratings attach to existing `EvaluationTurn` rows in blind mode
 - **Do not add a `mode` field on `EvaluationRun`** — use `LatencyBenchmark` FK to distinguish benchmark sessions
-- **Snapshot API defaults** into `EvaluationRun.api_defaults` at session creation; per-turn `api_request` records what was sent
+- **Snapshot API defaults** into `EvaluationRun.api_defaults` at session creation (`lab`, `omit_instructions`, `prompt_preset`, reasoning, tokens, detail, store); per-turn `api_request` records what was sent
+- **Eval text:** `compose_eval_text()` → `run.instructions` + `run.user_prompt`. Pass Responses `instructions` only when non-empty; user `input_text` only when `user_prompt` is non-empty. Do not restore a `prompt` column.
 - **API parameter enums** (reasoning effort/mode, image detail, etc.) must match official OpenAI docs / installed SDK types — do not guess
 - Plain Django templates + minimal inline CSS — no React/Vue
 - **Minimize scope** — focused diffs; match existing patterns in `views.py`, `models.py`, services
@@ -146,6 +150,7 @@ python manage.py createsuperuser
 Loaded via `python-decouple` from root `.env`. Defaults in `config/settings.py`:
 
 - `MODEL_LABS` — lab-grouped model catalog (`openai` enabled; `google`, `deepseek` stubs)
+- `EVAL_PROMPT_PRESETS` / `EVAL_PROMPT_DEFAULT_ID` / `DEFAULT_EVAL_PROMPT` — system-instruction catalog
 - `OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_REASONING_MODE`, `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS`, `OPENAI_DEFAULT_IMAGE_DETAIL`, `OPENAI_DEFAULT_STORE`
 - `AVAILABLE_MODELS` — derived from enabled labs; used for API key validation
 

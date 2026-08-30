@@ -1,10 +1,12 @@
-"""Eval prompt preset catalog helpers."""
+"""Eval system-instruction preset catalog helpers."""
 
 from __future__ import annotations
 
 from django.conf import settings
 
-CUSTOM_PRESET_ID = "custom"
+
+class ComposeEvalTextError(ValueError):
+    """Invalid omit/preset/additional combination."""
 
 
 def preset_catalog() -> dict[str, dict[str, str]]:
@@ -12,12 +14,10 @@ def preset_catalog() -> dict[str, dict[str, str]]:
 
 
 def preset_choices() -> list[tuple[str, str]]:
-    choices = [
+    return [
         (preset_id, preset["label"])
         for preset_id, preset in settings.EVAL_PROMPT_PRESETS.items()
     ]
-    choices.append((CUSTOM_PRESET_ID, "Custom"))
-    return choices
 
 
 def preset_texts() -> dict[str, str]:
@@ -31,6 +31,29 @@ def default_preset_id() -> str:
     return settings.EVAL_PROMPT_DEFAULT_ID
 
 
-def default_prompt_text() -> str:
-    preset = settings.EVAL_PROMPT_PRESETS.get(settings.EVAL_PROMPT_DEFAULT_ID, {})
-    return preset.get("text") or settings.DEFAULT_EVAL_PROMPT
+def compose_eval_text(
+    *,
+    omit_instructions: bool,
+    preset_id: str,
+    additional: str,
+) -> tuple[str, str]:
+    """Return (instructions, user_prompt) for a session.
+
+    When omit is true, additional is the user prompt and instructions are empty.
+    When omit is false, instructions are the preset body plus optional additional;
+    user_prompt is empty (image-only user content).
+    """
+    extra = additional.strip()
+    if omit_instructions:
+        if not extra:
+            raise ComposeEvalTextError(
+                "Enter additional instructions when system instructions are omitted."
+            )
+        return "", extra
+
+    texts = preset_texts()
+    if preset_id not in texts:
+        raise ComposeEvalTextError("Select a valid system-instruction preset.")
+    body = texts[preset_id]
+    instructions = body if not extra else f"{body}\n\n{extra}"
+    return instructions, ""

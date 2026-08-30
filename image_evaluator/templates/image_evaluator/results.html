@@ -24,7 +24,7 @@
         {% if run.description %}
         <p class="muted" style="margin:0 0 0.5rem;"><strong>Session:</strong> {{ run.description }}</p>
         {% endif %}
-        <p class="muted" style="margin:0;">{{ run.prompt }}</p>
+        {% include "image_evaluator/_run_prompts.html" with compact=1 %}
       </div>
     </div>
 

@@ -32,7 +32,6 @@ class ApiDefaultsFormTests(TestCase):
             "run_type": "blind_comparison",
             "lab": "openai",
             "prompt_preset": "describe",
-            "prompt": "describe",
             "models": ["gpt-5.6-luna", "gpt-5.6-terra"],
             "reasoning_effort": "xhigh",
             "reasoning_mode": "pro",
@@ -59,7 +58,6 @@ class ApiDefaultsFormTests(TestCase):
                 "run_type": "blind_comparison",
                 "lab": "openai",
                 "prompt_preset": "describe",
-                "prompt": "describe",
                 "models": ["gpt-5.6-luna", "gpt-5.6-terra"],
                 "reasoning_effort": "minimal",
                 "reasoning_mode": "standard",
@@ -97,7 +95,7 @@ class GenerateUsesRunSnapshotTests(TestCase):
             image=make_test_image(),
             image_name="test.png",
             image_content_type="image/png",
-            prompt="describe",
+            user_prompt="describe",
             model_order=["gpt-a", "gpt-b"],
             api_defaults={
                 "lab": "openai",
@@ -143,3 +141,5 @@ class GenerateUsesRunSnapshotTests(TestCase):
         self.assertEqual(config.reasoning_mode, "pro")
         self.assertEqual(config.max_output_tokens, 2048)
         self.assertEqual(config.image_detail, "high")
+        self.assertEqual(mock_analyze.call_args.kwargs["user_prompt"], "describe")
+        self.assertEqual(mock_analyze.call_args.kwargs["instructions"], "")

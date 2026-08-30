@@ -1,0 +1,6 @@
+{% if run.instructions %}
+<p class="muted"{% if compact %} style="margin:0 0 0.5rem;"{% endif %}><strong>Instructions:</strong> {{ run.instructions }}</p>
+{% endif %}
+{% if run.user_prompt %}
+<p class="muted"{% if compact %} style="margin:0;"{% endif %}><strong>User prompt:</strong> {{ run.user_prompt }}</p>
+{% endif %}

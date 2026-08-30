@@ -1,10 +1,10 @@
 # Session handoff
 
-Last updated: 2026-08-30 10:25 (UTC+1)
+Last updated: 2026-08-30 11:00 (UTC+1)
 
 ## Project
 
-**Vision Model Eval** — Django app to compare OpenAI vision models on one image + one prompt. SQLite database. No auth.
+**Vision Model Eval** — Django app to compare OpenAI vision models on one image plus optional system instructions and user prompt. SQLite database. No auth.
 
 ## Read first
 
@@ -18,46 +18,44 @@ No `docs/PROJECT-PLAN.md` yet.
 
 - Django project: `config/`, `image_evaluator/`, root `.env` via `python-decouple`
 - **Blind comparison**: randomized model order, generate → rate → reveal → CSV
-- **Latency benchmark**: `LatencyBenchmark` table (OneToOne → `EvaluationRun`), auto-sequential run, no ratings
-- **EvaluationTurn**: full metadata per API call (latencies, tokens, `api_request`/`api_response`/`usage_raw`); persisted on generate, including errors
-- **EvaluationRun**: status, image dimensions/size, `api_defaults` snapshot
-- API key validation on prepare page; tests in `test_api_key.py` (unit + `@tag('openai')` live probe)
-- Migrations through `0002_comprehensive_metadata` (data migrated from `EvaluationRating`)
-- `.cursor/` folder scaffold
-- `AGENTS.md` at repo root
-- **Console dashboard** at `/` — run list, filters, cross-run stats, per-model summaries
-- **Inspect pages** at `/run/<id>/inspect/` and `/run/<id>/turn/<n>/` — full metadata without Django admin
-- Prepare form moved to `/new/`; site nav on all pages
-- **Pickable API defaults** on `/new/` (reasoning effort/mode, tokens, image detail, store) using official OpenAI SDK enums; snapshotted in `api_defaults`
-- **MODEL_LABS** catalog (OpenAI enabled; Gemini/DeepSeek stubs); lab select on prepare form
-- **Benchmark UX**: one model per request on `/run/<id>/benchmark/`; first model auto-runs; user reads full response + latency then continues via `?continue=1`
-- **Latency metrics documented**: Wall (s) = precise `perf_counter()` around `client.responses.create()`; OpenAI (s) = rough `completed_at − created_at` (often whole-second timestamps, can be higher or lower than wall). Labels + footnote on results table; docstring on `_openai_latency_seconds()`; tests in `test_metadata.py`
-- **Prompt presets** on `/new/` (`EVAL_PROMPT_PRESETS` in settings): dropdown fills the prompt textarea; edited text wins on POST; `custom` preset when user edits
-- **Session description** optional on `/new/` → `EvaluationRun.description` (metadata only, not sent to OpenAI); shown on console/inspect/sidebars; CSV column `session_description`
-- Migration `0003_evaluationrun_description`
+- **Latency benchmark**: `LatencyBenchmark` OneToOne → `EvaluationRun`; one model per request; user continues via `?continue=1`
+- **EvaluationTurn**: latencies, tokens, `api_request` / `api_response` / `usage_raw`; success and error turns persisted on generate
+- **EvaluationRun**: `instructions`, `user_prompt`, `description`, image metadata, `api_defaults`, status. No `prompt` column. No `mode` column
+- Migrations through **`0004_run_instructions_user_prompt`**
+- API key validation on `/new/`; tests in `test_api_key.py` (unit + `@tag('openai')` live probe)
+- Console `/`, inspect run/turn, site nav, CSV (includes `instructions`, `user_prompt`, `session_description`)
+- Pickable API defaults (SDK enums) + `MODEL_LABS` (OpenAI on; Gemini/DeepSeek stubs)
+- **System instructions** presets (`EVAL_PROMPT_PRESETS`); **Omit system instructions** → user-only `input_text`; `compose_eval_text()` is the compose helper
+- Wall (s) = `perf_counter()` around `responses.create`; OpenAI (s) = coarse `completed_at − created_at`
 
 ## Not done
 
-- Streaming / TTFB measurement
+- Streaming / TTFB (`time_to_first_token_seconds` always null — reserved)
 - User authentication
 - Production deploy (PostgreSQL, static files, etc.)
 - Formal phased project plan
-- Prompt library (save/reuse named prompts) and vector search on session descriptions
+- Prompt library (save/reuse) and vector search on `description`
+- Per-turn cost estimate (token counts exist; no USD on the Responses object)
 
 ## Locked decisions
 
-- Root `.env` is the only Django secrets file (not `scripts/.../.env`)
-- No `mode` on `EvaluationRun` — benchmark vs blind inferred from `LatencyBenchmark` presence
+- Root `.env` is the only Django secrets file
+- No `mode` on `EvaluationRun` — benchmark vs blind from `LatencyBenchmark` presence
 - Turns saved immediately; ratings optional on `EvaluationTurn`
-- Benchmark runs one model per step on `/run/<id>/benchmark/`; user reads each response then continues
-- `/` is the console hub; `/new/` is the prepare form (URL name `prepare` unchanged)
-- **Wall (s)** is the authoritative latency for benchmarks; **OpenAI (s)** is a coarse server-side estimate only (~1s resolution)
+- Benchmark: one model per step on `/run/<id>/benchmark/`
+- `/` = console; `/new/` = prepare (`prepare` URL name)
+- **Wall (s)** is the latency for benchmarks; **OpenAI (s)** is a coarse estimate
+- Presets are Responses **`instructions`**, not a Custom textarea. Additional appends when presets are on; omit sends additional as `user_prompt` only
+- `description` is metadata only — never sent to OpenAI
+- Keep `LatencyBenchmark.notes` (unused) and TTFB column; do not drop them unless asked
+- Safe to delete `db.sqlite3` and `migrate` for a data-empty start; schema still comes from migrations
 
 ## Next (suggested)
 
-- Run real eval/benchmark sessions and use the console to compare across runs
-- Add `.cursor/rules/` for Django/OpenAI conventions if patterns stabilize
-- Add `docs/PROJECT-PLAN.md` when scope grows beyond eval + latency tooling
+- Delete `db.sqlite3` if you want a clean local DB, then `python manage.py migrate`
+- Run real eval/benchmark sessions
+- Add `.cursor/rules/` if conventions stabilize
+- Add `docs/PROJECT-PLAN.md` only when scope grows
 
 ## Commands
 
@@ -70,32 +68,35 @@ python manage.py runserver
 
 ## Session log
 
+### 2026-08-30 11:00 (UTC+1)
+
+- Docs pass: README prepare-flow table; AGENTS compose/instructions rules; schema notes (no `prompt` column; TTFB reserved; `LatencyBenchmark.notes` unused but kept)
+- Resetting local SQLite (`rm db.sqlite3` + migrate) is the intended empty-data start
+
+### 2026-08-30 10:55 (UTC+1)
+
+- Greenfield prompt split: `instructions` vs `user_prompt`
+- Omit checkbox; additional appends to preset or is the only user prompt
+- Removed Custom preset
+- Tests in `test_prompt_presets.py`
+
 ### 2026-08-30 10:25 (UTC+1)
 
-- Prompt preset dropdown on `/new/` (describe, OCR, inventory, uncertainty, custom); textarea text snapshotted to `EvaluationRun.prompt`
-- Optional session description on runs; console column + CSV `session_description`; not sent to API
-- Tests in `test_prompt_presets.py`
+- Prompt presets + session description (later superseded by instructions split)
+- CSV `session_description`
 
 ### 2026-08-30 10:06 (UTC+1)
 
-- Clarified Wall vs OpenAI latency: wall is precise client wait; OpenAI is rough `completed_at − created_at` (integer-second timestamps common)
-- Benchmark page shows full response text per model; interactive step-through (`?continue=1`) instead of all models in one request
-- Results table: client/server column labels + help footnote
-- Tests in `MetadataExtractionTests` document OpenAI latency can exceed or be less than wall
+- Wall vs OpenAI latency; benchmark step-through; results footnote
 
 ### 2026-08-30 09:35 (UTC+1)
 
-- Pickable API options on `/new/` with official SDK enums; run snapshot drives generate/benchmark
-- MODEL_LABS catalog; AGENTS.md rule for doc-backed enums and error turns
-- Tests in `test_api_defaults.py`
+- Pickable API options; MODEL_LABS; `test_api_defaults.py`
 
 ### 2026-08-30 09:15 (UTC+1)
 
-- Added console dashboard (`/`), inspect run/turn pages, site nav
-- Moved prepare form to `/new/`; CSV export works for partial runs
-- Tests in `test_console.py`; updated README and handoff
+- Console, inspect pages, prepare at `/new/`
 
 ### 2026-08-30 09:03 (UTC+1)
 
-- Created comprehensive metadata model (`EvaluationTurn`, `LatencyBenchmark`)
-- Updated README, `.cursor/` structure, `AGENTS.md`, this handoff
+- `EvaluationTurn` / `LatencyBenchmark` model

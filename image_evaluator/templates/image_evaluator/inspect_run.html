@@ -40,7 +40,7 @@
         {% if run.description %}
         <p><strong>Session:</strong> {{ run.description }}</p>
         {% endif %}
-        <p>{{ run.prompt }}</p>
+        {% include "image_evaluator/_run_prompts.html" %}
       </div>
     </div>
 
@@ -68,6 +68,8 @@
       <div><dt>Max output tokens</dt><dd>{{ run.api_defaults.max_output_tokens|default:"—" }}</dd></div>
       <div><dt>Image detail</dt><dd>{{ run.api_defaults.image_detail|default:"—" }}</dd></div>
       <div><dt>Store</dt><dd>{{ run.api_defaults.store|yesno:"yes,no" }}</dd></div>
+      {% if run.api_defaults.prompt_preset %}<div><dt>Preset</dt><dd>{{ run.api_defaults.prompt_preset }}</dd></div>{% endif %}
+      <div><dt>Omit instructions</dt><dd>{{ run.api_defaults.omit_instructions|yesno:"yes,no,—" }}</dd></div>
     </dl>
     <details>
       <summary>API defaults snapshot (JSON)</summary>

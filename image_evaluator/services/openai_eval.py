@@ -139,7 +139,8 @@ def _openai_latency_seconds(response: Any) -> float | None:
 def analyze_image(
     *,
     model: str,
-    prompt: str,
+    instructions: str = "",
+    user_prompt: str = "",
     image_path: Path | str,
     image_content_type: str = "image/jpeg",
     api_config: ApiRequestConfig | None = None,
@@ -148,35 +149,46 @@ def analyze_image(
     image_bytes = Path(image_path).read_bytes()
     encoded_image = base64.b64encode(image_bytes).decode("utf-8")
     image_data_url = f"data:{image_content_type};base64,{encoded_image}"
+    instructions_text = instructions.strip()
+    user_text = user_prompt.strip()
+
+    content: list[dict[str, Any]] = []
+    if user_text:
+        content.append({"type": "input_text", "text": user_text})
+    content.append(
+        {
+            "type": "input_image",
+            "image_url": image_data_url,
+            "detail": config.image_detail,
+        }
+    )
 
     api_request = {
         "model": model,
-        "prompt": prompt,
+        "instructions": instructions_text,
+        "user_prompt": user_text,
         **config.to_dict(),
     }
+
+    create_kwargs: dict[str, Any] = {
+        "model": model,
+        "input": [
+            {
+                "role": "user",
+                "content": content,
+            }
+        ],
+        "reasoning": {"effort": config.reasoning_effort, "mode": config.reasoning_mode},
+        "max_output_tokens": config.max_output_tokens,
+        "store": config.store,
+    }
+    if instructions_text:
+        create_kwargs["instructions"] = instructions_text
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
     request_started_at = datetime.now(timezone.utc)
     started_perf = time.perf_counter()
-    response = client.responses.create(
-        model=model,
-        input=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": prompt},
-                    {
-                        "type": "input_image",
-                        "image_url": image_data_url,
-                        "detail": config.image_detail,
-                    },
-                ],
-            }
-        ],
-        reasoning={"effort": config.reasoning_effort, "mode": config.reasoning_mode},
-        max_output_tokens=config.max_output_tokens,
-        store=config.store,
-    )
+    response = client.responses.create(**create_kwargs)
     request_finished_at = datetime.now(timezone.utc)
     latency_wall_seconds = round(time.perf_counter() - started_perf, 3)
     usage = getattr(response, "usage", None)

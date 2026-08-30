@@ -11,7 +11,7 @@
     {% if run.description %}
     <p class="muted"><strong>Session:</strong> {{ run.description }}</p>
     {% endif %}
-    <p class="muted">{{ run.prompt }}</p>
+    {% include "image_evaluator/_run_prompts.html" %}
     {% if run.api_defaults %}
     <dl class="meta-grid" style="margin-top:0.75rem;">
       {% if run.api_defaults.lab %}<div><dt>Lab</dt><dd>{{ run.api_defaults.lab }}</dd></div>{% endif %}

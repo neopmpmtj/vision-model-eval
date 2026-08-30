@@ -29,7 +29,6 @@ from .services.api_key import ApiKeyStatus
 from .services.console import console_overview, filter_runs, model_summaries, session_url_name
 from .services.openai_eval import ApiRequestConfig
 from .model_catalog import disabled_labs, model_to_lab_map
-from .prompt_presets import CUSTOM_PRESET_ID, preset_texts
 
 SESSION_PENDING_TURN_KEY = "pending_turn_id"
 SESSION_ERROR_KEY = "request_error"
@@ -91,7 +90,8 @@ def _api_config_for_run(run: EvaluationRun) -> ApiRequestConfig:
 def _create_run(
     *,
     uploaded,
-    prompt: str,
+    instructions: str,
+    user_prompt: str,
     description: str,
     model_order: list[str],
     api_defaults: dict,
@@ -104,7 +104,8 @@ def _create_run(
         image_size_bytes=size_bytes,
         image_width=width,
         image_height=height,
-        prompt=prompt,
+        instructions=instructions,
+        user_prompt=user_prompt,
         description=description,
         model_order=model_order,
         api_defaults=api_defaults,
@@ -123,7 +124,8 @@ def _turn_csv_fields() -> list[str]:
         "response_model",
         "status",
         "image_name",
-        "prompt",
+        "instructions",
+        "user_prompt",
         "session_description",
         "rating",
         "notes",
@@ -164,7 +166,8 @@ def _turn_csv_row(*, run: EvaluationRun, turn: EvaluationTurn) -> dict:
         "response_model": turn.response_model,
         "status": turn.status,
         "image_name": run.image_name,
-        "prompt": run.prompt,
+        "instructions": run.instructions,
+        "user_prompt": run.user_prompt,
         "session_description": run.description,
         "rating": turn.rating if turn.rating is not None else "",
         "notes": turn.notes,
@@ -250,8 +253,6 @@ class PrepareView(View):
             "form": form,
             "disabled_labs": disabled_labs(),
             "model_to_lab": model_to_lab_map(),
-            "prompt_preset_texts": preset_texts(),
-            "custom_preset_id": CUSTOM_PRESET_ID,
         }
 
     def get(self, request):
@@ -286,7 +287,8 @@ class PrepareView(View):
         )
         run = _create_run(
             uploaded=uploaded,
-            prompt=form.cleaned_data["prompt"],
+            instructions=form.cleaned_data["instructions"],
+            user_prompt=form.cleaned_data["user_prompt"],
             description=form.cleaned_data["description"],
             model_order=model_order,
             api_defaults=form.api_defaults_dict(),
@@ -364,7 +366,8 @@ class EvaluateView(View):
             try:
                 result = analyze_image(
                     model=model,
-                    prompt=run.prompt,
+                    instructions=run.instructions,
+                    user_prompt=run.user_prompt,
                     image_path=run.image.path,
                     image_content_type=run.image_content_type,
                     api_config=api_config,
@@ -388,7 +391,8 @@ class EvaluateView(View):
                     latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
                     api_request=build_api_request_dict(
                         model=model,
-                        prompt=run.prompt,
+                        instructions=run.instructions,
+                        user_prompt=run.user_prompt,
                         api_config=api_config,
                     ),
                 )
@@ -458,7 +462,8 @@ def _run_benchmark_turn(
     try:
         result = analyze_image(
             model=model,
-            prompt=run.prompt,
+            instructions=run.instructions,
+            user_prompt=run.user_prompt,
             image_path=run.image.path,
             image_content_type=run.image_content_type,
             api_config=api_config,
@@ -480,7 +485,8 @@ def _run_benchmark_turn(
             latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
             api_request=build_api_request_dict(
                 model=model,
-                prompt=run.prompt,
+                instructions=run.instructions,
+                user_prompt=run.user_prompt,
                 api_config=api_config,
             ),
         )

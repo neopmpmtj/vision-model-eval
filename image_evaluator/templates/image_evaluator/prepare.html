@@ -34,13 +34,22 @@
       <p class="help">{{ form.description.help_text }}</p>
       {{ form.description.errors }}
 
+      <div style="margin-top:0.75rem;">
+        {{ form.omit_instructions }}
+        <label for="{{ form.omit_instructions.id_for_label }}" style="display:inline;font-weight:400;">{{ form.omit_instructions.label }}</label>
+        <p class="help">{{ form.omit_instructions.help_text }}</p>
+      </div>
+      {{ form.omit_instructions.errors }}
+
       <label for="{{ form.prompt_preset.id_for_label }}">{{ form.prompt_preset.label }}</label>
       {{ form.prompt_preset }}
+      <p class="help">{{ form.prompt_preset.help_text }}</p>
       {{ form.prompt_preset.errors }}
 
-      <label for="{{ form.prompt.id_for_label }}">{{ form.prompt.label }}</label>
-      {{ form.prompt }}
-      {{ form.prompt.errors }}
+      <label for="{{ form.additional.id_for_label }}">{{ form.additional.label }}</label>
+      {{ form.additional }}
+      <p class="help">{{ form.additional.help_text }}</p>
+      {{ form.additional.errors }}
 
       <label>{{ form.models.label }}</label>
       <ul class="checkbox-list" id="model-list">
@@ -91,7 +100,6 @@
 {% endblock %}
 
 {% block extra_head %}
-{{ prompt_preset_texts|json_script:"prompt-preset-texts" }}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     var labSelect = document.getElementById("id_lab");
@@ -113,24 +121,20 @@
       syncModels();
     }
 
+    var omitBox = document.getElementById("id_omit_instructions");
     var presetSelect = document.getElementById("id_prompt_preset");
-    var promptField = document.getElementById("id_prompt");
-    var presetTextsEl = document.getElementById("prompt-preset-texts");
-    if (!presetSelect || !promptField || !presetTextsEl) return;
+    if (!omitBox || !presetSelect) return;
 
-    var presetTexts = JSON.parse(presetTextsEl.textContent);
-    var customPresetId = "{{ custom_preset_id }}";
+    function syncOmit() {
+      presetSelect.disabled = omitBox.checked;
+      presetSelect.style.opacity = omitBox.checked ? "0.55" : "";
+    }
 
-    presetSelect.addEventListener("change", function () {
-      var presetId = presetSelect.value;
-      if (presetId === customPresetId) return;
-      if (Object.prototype.hasOwnProperty.call(presetTexts, presetId)) {
-        promptField.value = presetTexts[presetId];
-      }
-    });
+    omitBox.addEventListener("change", syncOmit);
+    syncOmit();
 
-    promptField.addEventListener("input", function () {
-      presetSelect.value = customPresetId;
+    document.getElementById("prepare-form").addEventListener("submit", function () {
+      presetSelect.disabled = false;
     });
   });
 </script>

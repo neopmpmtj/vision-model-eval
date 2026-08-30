@@ -92,11 +92,18 @@ def save_error_turn(
     return turn
 
 
-def build_api_request_dict(*, model: str, prompt: str, api_config: ApiRequestConfig | None = None) -> dict:
+def build_api_request_dict(
+    *,
+    model: str,
+    instructions: str = "",
+    user_prompt: str = "",
+    api_config: ApiRequestConfig | None = None,
+) -> dict:
     config = api_config or ApiRequestConfig.from_settings()
     return {
         "model": model,
-        "prompt": prompt,
+        "instructions": instructions,
+        "user_prompt": user_prompt,
         **config.to_dict(),
     }
 

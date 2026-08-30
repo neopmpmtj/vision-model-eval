@@ -26,7 +26,7 @@ class EvaluationTurnInline(admin.TabularInline):
 class EvaluationRunAdmin(admin.ModelAdmin):
     list_display = ("id", "image_name", "description", "status", "created_at", "turn_count", "rated_count", "is_benchmark_display")
     list_filter = ("status", "created_at")
-    search_fields = ("image_name", "prompt", "description")
+    search_fields = ("image_name", "instructions", "user_prompt", "description")
     readonly_fields = ("id", "created_at", "completed_at", "model_order", "api_defaults")
     inlines = [EvaluationTurnInline]
 

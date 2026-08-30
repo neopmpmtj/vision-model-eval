@@ -111,7 +111,7 @@ class TurnPersistenceTests(TestCase):
             image_size_bytes=100,
             image_width=8,
             image_height=8,
-            prompt="describe",
+            user_prompt="describe",
             model_order=["gpt-a", "gpt-b"],
             api_defaults=ApiRequestConfig.from_settings().to_dict(),
         )
@@ -150,7 +150,7 @@ class BenchmarkViewTests(TestCase):
             image=make_test_image(),
             image_name="test.png",
             image_content_type="image/png",
-            prompt="describe",
+            user_prompt="describe",
             model_order=["gpt-a", "gpt-b"],
         )
         LatencyBenchmark.objects.create(run=run, turn_count_expected=2)

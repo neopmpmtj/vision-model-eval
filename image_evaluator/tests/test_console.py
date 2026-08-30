@@ -32,7 +32,7 @@ def make_run(*, benchmark: bool = False, image_name: str = "test.png") -> Evalua
         image_size_bytes=100,
         image_width=8,
         image_height=8,
-        prompt="describe this image",
+        user_prompt="describe this image",
         model_order=["gpt-a", "gpt-b"],
         api_defaults=ApiRequestConfig.from_settings().to_dict(),
         status=RunStatus.IN_PROGRESS,

@@ -340,7 +340,7 @@
     <div class="header-inner">
       <div>
         <h1>OpenAI Image Understanding Evaluator</h1>
-        <p>One image · one fixed prompt · several OpenAI models · your blind ratings</p>
+        <p>One image · optional system instructions · several OpenAI models</p>
       </div>
       <nav class="site-nav" aria-label="Main">
         <a href="{% url 'image_evaluator:console' %}"{% if request.resolver_match.url_name == 'console' %} class="active"{% endif %}>Console</a>
