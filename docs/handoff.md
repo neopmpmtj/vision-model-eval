@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 2026-08-30 11:00 (UTC+1)
+Last updated: 2026-08-30 14:50 (UTC+1)
 
 ## Project
 
@@ -27,6 +27,7 @@ No `docs/PROJECT-PLAN.md` yet.
 - Pickable API defaults (SDK enums) + `MODEL_LABS` (OpenAI on; Gemini/DeepSeek stubs)
 - **System instructions** presets (`EVAL_PROMPT_PRESETS`); **Omit system instructions** → user-only `input_text`; `compose_eval_text()` is the compose helper
 - Wall (s) = `perf_counter()` around `responses.create`; OpenAI (s) = coarse `completed_at − created_at`
+- Busy overlay spinner on generate, benchmark continue, prepare submit, and API-key recheck
 
 ## Not done
 
@@ -67,6 +68,10 @@ python manage.py runserver
 ```
 
 ## Session log
+
+### 2026-08-30 14:50 (UTC+1)
+
+- Shared `#busy-overlay` spinner in `base.html`; `data-wait` on generate/rate, benchmark continue, prepare, and API-key recheck
 
 ### 2026-08-30 11:00 (UTC+1)
 

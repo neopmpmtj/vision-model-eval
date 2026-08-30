@@ -7,7 +7,7 @@
 <div class="layout single">
   <section class="panel">
     <h2>Prepare a session</h2>
-    <form method="post" enctype="multipart/form-data" id="prepare-form">
+    <form method="post" enctype="multipart/form-data" id="prepare-form" data-wait="Starting session…">
       {% csrf_token %}
 
       <label>{{ form.run_type.label }}</label>

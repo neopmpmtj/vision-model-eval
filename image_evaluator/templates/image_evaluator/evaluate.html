@@ -37,7 +37,7 @@
     <p class="muted">The model identity remains hidden until all responses have been rated.</p>
 
     {% if not pending_turn %}
-      <form method="post">
+      <form method="post" data-wait="Generating {{ sample_name }}…">
         {% csrf_token %}
         <input type="hidden" name="action" value="generate">
         <div class="actions">
@@ -58,7 +58,7 @@
         <p class="muted">OpenAI latency: {{ pending_turn.latency_openai_seconds|floatformat:3 }} seconds</p>
       {% endif %}
 
-      <form method="post">
+      <form method="post" data-wait="Saving rating…">
         {% csrf_token %}
         <input type="hidden" name="action" value="rate">
 

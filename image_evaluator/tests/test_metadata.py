@@ -176,3 +176,39 @@ class BenchmarkViewTests(TestCase):
         benchmark = LatencyBenchmark.objects.get(run=run)
         self.assertEqual(benchmark.status, RunStatus.COMPLETED)
         self.assertEqual(benchmark.successful_turn_count, 2)
+
+
+class BusyIndicatorTests(TestCase):
+    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    def test_evaluate_generate_form_waits(self, _mock_key):
+        run = EvaluationRun.objects.create(
+            image=make_test_image(),
+            image_name="test.png",
+            image_content_type="image/png",
+            image_size_bytes=100,
+            image_width=8,
+            image_height=8,
+            user_prompt="describe",
+            model_order=["gpt-a"],
+            api_defaults=ApiRequestConfig.from_settings().to_dict(),
+        )
+        response = Client().get(reverse("image_evaluator:evaluate", kwargs={"run_id": run.id}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="busy-overlay"')
+        self.assertContains(response, 'data-wait="Generating Sample 1')
+
+    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.analyze_image")
+    def test_benchmark_continue_link_waits(self, mock_analyze, _mock_key):
+        mock_analyze.return_value = make_analysis_result()
+        run = EvaluationRun.objects.create(
+            image=make_test_image(),
+            image_name="test.png",
+            image_content_type="image/png",
+            user_prompt="describe",
+            model_order=["gpt-a", "gpt-b"],
+        )
+        LatencyBenchmark.objects.create(run=run, turn_count_expected=2)
+        response = Client().get(reverse("image_evaluator:benchmark", kwargs={"run_id": run.id}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-wait="Calling gpt-b')

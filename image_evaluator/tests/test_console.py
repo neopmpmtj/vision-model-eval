@@ -141,3 +141,8 @@ class PrepareUrlTests(TestCase):
         response = Client().get("/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Console")
+
+    def test_pages_include_busy_overlay(self):
+        response = Client().get("/")
+        self.assertContains(response, 'id="busy-overlay"')
+        self.assertContains(response, "busy-spinner")

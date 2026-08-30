@@ -55,7 +55,7 @@
 
     <div class="actions">
       {% if next_model %}
-        <a class="btn" href="{% url 'image_evaluator:benchmark' run.id %}?continue=1">Run next model: {{ next_model }}</a>
+        <a class="btn" href="{% url 'image_evaluator:benchmark' run.id %}?continue=1" data-wait="Calling {{ next_model }}…">Run next model: {{ next_model }}</a>
       {% endif %}
       <a class="btn secondary" href="{% url 'image_evaluator:inspect' run.id %}">Inspect run</a>
       <a class="btn secondary" href="{% url 'image_evaluator:console' %}">Console</a>
