@@ -1,10 +1,10 @@
 # Session handoff
 
-Last updated: 2026-08-30 14:50 (UTC+1)
+Last updated: 2026-08-30 16:15 (UTC+1)
 
 ## Project
 
-**Vision Model Eval** — Django app to compare OpenAI vision models on one image plus optional system instructions and user prompt. SQLite database. No auth.
+**Vision Model Eval** — Django app to compare frontier vision models (OpenAI, Google Gemini, DeepSeek) on one image plus optional system instructions and user prompt. SQLite database. No auth.
 
 ## Read first
 
@@ -22,11 +22,16 @@ No `docs/PROJECT-PLAN.md` yet.
 - **EvaluationTurn**: latencies, tokens, `api_request` / `api_response` / `usage_raw`; success and error turns persisted on generate
 - **EvaluationRun**: `instructions`, `user_prompt`, `description`, image metadata, `api_defaults`, status. No `prompt` column. No `mode` column
 - Migrations through **`0004_run_instructions_user_prompt`**
-- API key validation on `/new/`; tests in `test_api_key.py` (unit + `@tag('openai')` live probe)
+- **Multi-lab eval**: OpenAI, Google Gemini (3.x), DeepSeek vision — one lab per session; parallel service modules (`openai_eval`, `gemini_eval`, `deepseek_eval`, `eval_dispatch`)
+- Per-lab API keys: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` in root `.env`; validated on prepare POST and evaluate/benchmark (prepare GET always renders)
+- **Inline prepare key alerts** on `/new/`: missing/invalid key shown under Model lab on load and lab change; submit disabled when selected lab key is not ok (`lab_key_alert`, `lab_key_alerts_for_prepare`)
+- Lab-specific API options on `/new/` (OpenAI reasoning/store; Gemini thinking level/budget + media resolution; DeepSeek reasoning effort + image detail)
+- Min **1 model** per session (DeepSeek single-model benchmark supported)
+- API key validation per lab (`lab_api_key.py`); tests in `test_api_key.py` + `test_multi_lab.py` (unit + `@tag('openai')` live probe)
 - Console `/`, inspect run/turn, site nav, CSV (includes `instructions`, `user_prompt`, `session_description`)
-- Pickable API defaults (SDK enums) + `MODEL_LABS` (OpenAI on; Gemini/DeepSeek stubs)
+- Pickable API defaults (SDK enums) + `MODEL_LABS` (all three labs enabled)
 - **System instructions** presets (`EVAL_PROMPT_PRESETS`); **Omit system instructions** → user-only `input_text`; `compose_eval_text()` is the compose helper
-- Wall (s) = `perf_counter()` around `responses.create`; OpenAI (s) = coarse `completed_at − created_at`
+- Wall (s) = client `perf_counter()`; Provider (s) = server-reported when available (OpenAI/DeepSeek Responses timestamps; Gemini often null)
 - Busy overlay spinner on generate, benchmark continue, prepare submit, and API-key recheck
 
 ## Not done
@@ -45,7 +50,7 @@ No `docs/PROJECT-PLAN.md` yet.
 - Turns saved immediately; ratings optional on `EvaluationTurn`
 - Benchmark: one model per step on `/run/<id>/benchmark/`
 - `/` = console; `/new/` = prepare (`prepare` URL name)
-- **Wall (s)** is the latency for benchmarks; **OpenAI (s)** is a coarse estimate
+- **Wall (s)** is the latency for benchmarks; **Provider (s)** is server-reported when available
 - Presets are Responses **`instructions`**, not a Custom textarea. Additional appends when presets are on; omit sends additional as `user_prompt` only
 - `description` is metadata only — never sent to OpenAI
 - Keep `LatencyBenchmark.notes` (unused) and TTFB column; do not drop them unless asked
@@ -53,8 +58,8 @@ No `docs/PROJECT-PLAN.md` yet.
 
 ## Next (suggested)
 
+- Add `GEMINI_API_KEY` and `DEEPSEEK_API_KEY` to root `.env` and run real Gemini/DeepSeek sessions
 - Delete `db.sqlite3` if you want a clean local DB, then `python manage.py migrate`
-- Run real eval/benchmark sessions
 - Add `.cursor/rules/` if conventions stabilize
 - Add `docs/PROJECT-PLAN.md` only when scope grows
 
@@ -68,6 +73,13 @@ python manage.py runserver
 ```
 
 ## Session log
+
+### 2026-08-30 16:00 (UTC+1)
+
+- Multi-lab: Google Gemini (3.x) and DeepSeek `deepseek-v4-flash-vision-exp` enabled; Gemini 2.5 models removed from catalog (not available to new API users)
+- Parallel eval services + `eval_dispatch`; per-lab keys and API option fieldsets on `/new/`
+- Min 1 model per session; UI retitled Vision Model Evaluator; Provider latency labels
+- Tests: `test_multi_lab.py`; 50 unit tests pass (`--exclude-tag=openai`)
 
 ### 2026-08-30 14:50 (UTC+1)
 

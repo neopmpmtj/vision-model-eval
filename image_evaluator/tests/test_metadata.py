@@ -14,8 +14,8 @@ from image_evaluator.models import (
     RunStatus,
     TurnStatus,
 )
+from image_evaluator.services.analysis import AnalysisResult
 from image_evaluator.services.openai_eval import (
-    AnalysisResult,
     ApiRequestConfig,
     _openai_latency_seconds,
     _response_snapshot,
@@ -116,7 +116,7 @@ class TurnPersistenceTests(TestCase):
             api_defaults=ApiRequestConfig.from_settings().to_dict(),
         )
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     @patch("image_evaluator.views.analyze_image")
     def test_generate_persists_turn_before_rating(self, mock_analyze, _mock_key):
         mock_analyze.return_value = make_analysis_result()
@@ -129,7 +129,7 @@ class TurnPersistenceTests(TestCase):
         self.assertEqual(turn.latency_wall_seconds, 1.234)
         self.assertIsNone(turn.rating)
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     @patch("image_evaluator.views.analyze_image")
     def test_error_turn_persisted(self, mock_analyze, _mock_key):
         mock_analyze.side_effect = RuntimeError("api failed")
@@ -142,7 +142,7 @@ class TurnPersistenceTests(TestCase):
 
 
 class BenchmarkViewTests(TestCase):
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     @patch("image_evaluator.views.analyze_image")
     def test_benchmark_runs_one_model_per_step(self, mock_analyze, _mock_key):
         mock_analyze.return_value = make_analysis_result()
@@ -179,7 +179,7 @@ class BenchmarkViewTests(TestCase):
 
 
 class BusyIndicatorTests(TestCase):
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_evaluate_generate_form_waits(self, _mock_key):
         run = EvaluationRun.objects.create(
             image=make_test_image(),
@@ -197,7 +197,7 @@ class BusyIndicatorTests(TestCase):
         self.assertContains(response, 'id="busy-overlay"')
         self.assertContains(response, 'data-wait="Generating Sample 1')
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     @patch("image_evaluator.views.analyze_image")
     def test_benchmark_continue_link_waits(self, mock_analyze, _mock_key):
         mock_analyze.return_value = make_analysis_result()

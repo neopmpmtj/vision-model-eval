@@ -1,6 +1,6 @@
 # Vision Model Eval
 
-Django app for comparing OpenAI vision models on one image with optional system instructions and an optional user prompt. Supports blind human ratings and automated latency benchmarks, with full per-turn metadata stored in SQLite.
+Django app for comparing frontier vision models (OpenAI, Google Gemini, DeepSeek) on one image with optional system instructions and an optional user prompt. Supports blind human ratings and automated latency benchmarks, with full per-turn metadata stored in SQLite.
 
 ## Setup
 
@@ -11,10 +11,12 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Set your OpenAI key in `.env` at the **project root**:
+Set API keys in `.env` at the **project root**:
 
 ```
 OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=...
+DEEPSEEK_API_KEY=...
 ```
 
 Django reads the root `.env`, not `scripts/openai-image-evaluator/.env`.
@@ -113,19 +115,23 @@ Runs with at least one turn can be downloaded as CSV from the results or inspect
 
 ## API key validation
 
-The prepare page validates the key once per session (free `models.list()` check). Use `?recheck=1` to force a re-check.
+Prepare **GET** always renders the form. On **POST** (and on evaluate/benchmark), the app validates the **selected lab's** key via `models.list()` (OpenAI/DeepSeek) or Gemini model listing. That check is **free** and confirms the key works and configured models are visible — it does **not** prove you have billable credits.
+
+To verify credits/quota before a real session, run the **billable vision probe** for each lab (small token cost):
+
+```bash
+python manage.py test image_evaluator.tests.test_api_key --tag=openai
+python manage.py test image_evaluator.tests.test_lab_probes --tag=gemini
+python manage.py test image_evaluator.tests.test_lab_probes --tag=deepseek
+```
+
+A failed probe with insufficient quota returns a clear message (e.g. “insufficient quota or credits … check billing limits in your Google Gemini account”). During evaluate/benchmark, API errors (including quota) are persisted on the turn and shown in the UI.
 
 **Unit tests** (mocked, no network):
 
 ```bash
 python manage.py test image_evaluator.tests
-python manage.py test image_evaluator.tests --exclude-tag=openai
-```
-
-**Live OpenAI tests** (key check + small billable vision probe):
-
-```bash
-python manage.py test image_evaluator.tests.test_api_key --tag=openai
+python manage.py test image_evaluator.tests --exclude-tag=openai --exclude-tag=gemini --exclude-tag=deepseek
 ```
 
 ## Configuration
@@ -134,7 +140,8 @@ Optional defaults in `config/settings.py` (pre-filled on `/new/`, snapshotted pe
 
 | Setting | Default |
 |---------|---------|
-| `MODEL_LABS` | OpenAI enabled; Gemini/DeepSeek stubs |
+| `MODEL_LABS` | OpenAI, Google Gemini (3.x), DeepSeek vision — all enabled |
+| `OPENAI_API_KEY` / `GEMINI_API_KEY` / `DEEPSEEK_API_KEY` | From root `.env` |
 | `EVAL_PROMPT_PRESETS` | describe, ocr, inventory, uncertainty (`EVAL_PROMPT_DEFAULT_ID` = `describe`) |
 | `DEFAULT_EVAL_PROMPT` | Same text as the `describe` preset |
 | `OPENAI_DEFAULT_REASONING_EFFORT` | `low` (SDK: none, minimal, low, medium, high, xhigh, max) |
@@ -142,6 +149,10 @@ Optional defaults in `config/settings.py` (pre-filled on `/new/`, snapshotted pe
 | `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS` | `1600` |
 | `OPENAI_DEFAULT_IMAGE_DETAIL` | `auto` (SDK: auto, low, high, original) |
 | `OPENAI_DEFAULT_STORE` | `False` |
+| `GEMINI_DEFAULT_THINKING_LEVEL` | `medium` (Gemini 3.x) |
+| `GEMINI_DEFAULT_MEDIA_RESOLUTION` | `high` |
+| `DEEPSEEK_DEFAULT_REASONING_EFFORT` | `high` (`none`, `low`, `high`, `max`) |
+| `DEEPSEEK_DEFAULT_IMAGE_DETAIL` | `auto` |
 
 Chosen values (including `lab`, `omit_instructions`, `prompt_preset`) are stored in `EvaluationRun.api_defaults`. Per-turn `api_request` records what was actually sent (`instructions` omitted from the API call when empty).
 
@@ -151,7 +162,7 @@ Chosen values (including `lab`, `omit_instructions`, `prompt_preset`) are stored
 |------|-------------|
 | `config/` | Django settings and URLs |
 | `image_evaluator/` | App: models, views, services, templates |
-| `image_evaluator/services/` | OpenAI client, API key validation, turn persistence |
+| `image_evaluator/services/` | Provider eval modules, API key validation, turn persistence |
 | `.env` | Secrets (not committed) |
 | `db.sqlite3` | SQLite database |
 | `media/uploads/` | Uploaded images |

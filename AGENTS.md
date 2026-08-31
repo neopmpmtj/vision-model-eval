@@ -1,6 +1,6 @@
 # Vision Model Eval — Agent instructions
 
-Django 5.2 + SQLite app for **blind comparison** and **latency benchmarking** of OpenAI vision models on a single image with optional system instructions and user prompt. Per-turn metadata (latencies, tokens, API request/response JSON) is persisted in SQLite. No user authentication.
+Django 5.2 + SQLite app for **blind comparison** and **latency benchmarking** of frontier vision models (OpenAI, Google Gemini, DeepSeek) on a single image with optional system instructions and user prompt. Per-turn metadata (latencies, tokens, API request/response JSON) is persisted in SQLite. No user authentication.
 
 **▶ Read [`docs/handoff.md`](docs/handoff.md) first** — condensed state, locked decisions, and the suggested next task. Then [`README.md`](README.md) for setup, data model, and tests.
 
@@ -16,10 +16,11 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 - Turn-based persistence: `EvaluationRun` → `EvaluationTurn` (replaces `EvaluationRating`)
 - Partial and abandoned runs kept in DB (`RunStatus.abandoned`)
 - Full per-turn metadata: wall/OpenAI latency, token breakdown, `api_request` / `api_response` / `usage_raw` JSON
-- API key validation on prepare page (free `models.list()`); live tests include billable vision probe (`@tag('openai')`)
+- Multi-lab eval: OpenAI, Google Gemini (2.5 + 3.x), DeepSeek vision — parallel `*_eval.py` modules + `eval_dispatch`
+- Per-lab API keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`) validated on prepare POST and evaluate/benchmark
 - `python-decouple` for `.env` at **project root** (not `scripts/openai-image-evaluator/.env`)
 - `.cursor/` scaffold (rules, skills, agents, commands, hooks)
-- Unit tests: `test_api_key`, `test_metadata`, `test_console`, `test_api_defaults`, `test_prompt_presets`
+- Unit tests: `test_api_key`, `test_metadata`, `test_console`, `test_api_defaults`, `test_prompt_presets`, `test_multi_lab`
 - Console dashboard at `/`, inspect pages, site nav; prepare at `/new/`
 - System-instruction presets + omit checkbox; `EvaluationRun.instructions` / `user_prompt` / `description`
 
@@ -40,7 +41,7 @@ There is **no `docs/PROJECT-PLAN.md` yet** — do not invent phased roadmaps; up
 
 | App | Purpose |
 |-----|---------|
-| `image_evaluator` | Models, views, templates, OpenAI services, tests |
+| `image_evaluator` | Models, views, templates, multi-lab services, tests |
 | `config` | Settings (`python-decouple`), URLs, WSGI/ASGI |
 
 ### Data model
@@ -57,9 +58,14 @@ Run type: benchmark if `run.latency_benchmark` exists; otherwise blind compariso
 
 | Module | Role |
 |--------|------|
-| `openai_eval.py` | `analyze_image(instructions, user_prompt)`, `ApiRequestConfig`, `AnalysisResult` |
-| `api_key.py` | `validate_api_key()`, `run_billable_probe()` |
-| `turns.py` | `save_success_turn()`, `save_error_turn()`, `build_api_request_dict` |
+| `openai_eval.py` | OpenAI Responses `analyze_image`, `ApiRequestConfig` |
+| `gemini_eval.py` | Gemini `generate_content`, `GeminiApiRequestConfig` |
+| `deepseek_eval.py` | DeepSeek Responses `analyze_image`, `DeepSeekApiRequestConfig` |
+| `eval_dispatch.py` | Routes `analyze_image` / `build_api_request_dict` by `lab` |
+| `analysis.py` | Shared `AnalysisResult` DTO |
+| `lab_api_key.py` | Per-lab `validate_lab_api_key()`, billable probes |
+| `api_key.py` | Shared status types; OpenAI re-exports |
+| `turns.py` | `save_success_turn()`, `save_error_turn()` |
 | `prompt_presets.py` (app root) | `compose_eval_text()`, preset catalog helpers |
 
 ### URLs
@@ -87,7 +93,9 @@ views.py  →  services/  →  models.py  →  SQLite
 - **Business logic in `image_evaluator/services/`**, not in views or templates
 - **Persist turns on generate** (success or error); ratings attach to existing `EvaluationTurn` rows in blind mode
 - **Do not add a `mode` field on `EvaluationRun`** — use `LatencyBenchmark` FK to distinguish benchmark sessions
-- **Snapshot API defaults** into `EvaluationRun.api_defaults` at session creation (`lab`, `omit_instructions`, `prompt_preset`, reasoning, tokens, detail, store); per-turn `api_request` records what was sent
+- **One lab per session** — `api_defaults["lab"]` selects provider; do not mix labs in one run
+- **Parallel provider modules** — no shared Provider ABC; add labs via catalog + `*_eval.py` + dispatch branch
+- **Snapshot API defaults** into `EvaluationRun.api_defaults` at session creation (`lab`, `omit_instructions`, `prompt_preset`, plus lab-specific params); per-turn `api_request` records what was sent
 - **Eval text:** `compose_eval_text()` → `run.instructions` + `run.user_prompt`. Pass Responses `instructions` only when non-empty; user `input_text` only when `user_prompt` is non-empty. Do not restore a `prompt` column.
 - **API parameter enums** (reasoning effort/mode, image detail, etc.) must match official OpenAI docs / installed SDK types — do not guess
 - Plain Django templates + minimal inline CSS — no React/Vue
@@ -120,7 +128,7 @@ views.py  →  services/  →  models.py  →  SQLite
 
 ```bash
 source .venv/bin/activate
-cp .env.example .env          # set OPENAI_API_KEY
+cp .env.example .env          # OPENAI_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver      # http://127.0.0.1:8000/
@@ -142,17 +150,18 @@ python manage.py createsuperuser
 ## Security
 
 - Do not commit `.env` or real API keys
-- Do not log or print `OPENAI_API_KEY`
+- Do not log or print `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `DEEPSEEK_API_KEY`
 - Uploaded images live under `media/` (gitignored)
 
 ## Configuration
 
 Loaded via `python-decouple` from root `.env`. Defaults in `config/settings.py`:
 
-- `MODEL_LABS` — lab-grouped model catalog (`openai` enabled; `google`, `deepseek` stubs)
+- `MODEL_LABS` — lab-grouped model catalog (`openai`, `google`, `deepseek` enabled)
+- `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` — root `.env` only
+- `AVAILABLE_MODELS` — derived from enabled labs (do not pass to OpenAI `models.list()`)
 - `EVAL_PROMPT_PRESETS` / `EVAL_PROMPT_DEFAULT_ID` / `DEFAULT_EVAL_PROMPT` — system-instruction catalog
-- `OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_REASONING_MODE`, `OPENAI_DEFAULT_MAX_OUTPUT_TOKENS`, `OPENAI_DEFAULT_IMAGE_DETAIL`, `OPENAI_DEFAULT_STORE`
-- `AVAILABLE_MODELS` — derived from enabled labs; used for API key validation
+- OpenAI / Gemini / DeepSeek default API params in `config/settings.py` (snapshotted per run)
 
 ## Cursor project config
 

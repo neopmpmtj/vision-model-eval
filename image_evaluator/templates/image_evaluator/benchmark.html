@@ -1,6 +1,6 @@
 {% extends "image_evaluator/base.html" %}
 
-{% block title %}Latency benchmark · OpenAI Image Evaluator{% endblock %}
+{% block title %}Latency benchmark · Vision Model Evaluator{% endblock %}
 
 {% block content %}
 <div class="layout">
@@ -12,15 +12,7 @@
     <p class="muted"><strong>Session:</strong> {{ run.description }}</p>
     {% endif %}
     {% include "image_evaluator/_run_prompts.html" %}
-    {% if run.api_defaults %}
-    <dl class="meta-grid" style="margin-top:0.75rem;">
-      {% if run.api_defaults.lab %}<div><dt>Lab</dt><dd>{{ run.api_defaults.lab }}</dd></div>{% endif %}
-      {% if run.api_defaults.reasoning %}
-      <div><dt>Effort</dt><dd>{{ run.api_defaults.reasoning.effort|default:"—" }}</dd></div>
-      <div><dt>Mode</dt><dd>{{ run.api_defaults.reasoning.mode|default:"—" }}</dd></div>
-      {% endif %}
-    </dl>
-    {% endif %}
+    {% include "image_evaluator/_api_defaults_sidebar.html" %}
   </aside>
 
   <section class="panel">
@@ -37,7 +29,7 @@
         </div>
         <p class="muted" style="margin:0;">
           Wall {{ turn.latency_wall_seconds|floatformat:3|default:"—" }}s
-          {% if turn.latency_openai_seconds %}· OpenAI {{ turn.latency_openai_seconds|floatformat:3 }}s{% endif %}
+          {% if turn.latency_openai_seconds %}· Provider {{ turn.latency_openai_seconds|floatformat:3 }}s{% endif %}
           {% if turn.total_tokens %}· {{ turn.total_tokens }} tokens{% endif %}
         </p>
       </div>

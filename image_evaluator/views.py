@@ -17,22 +17,24 @@ from .models import EvaluationRun, EvaluationTurn, LatencyBenchmark, RunStatus, 
 from .services import (
     abandon_run,
     analyze_image,
+    api_key_for_lab,
     build_api_request_dict,
     complete_benchmark,
     complete_blind_run,
+    lab_key_alerts_for_prepare,
+    lab_key_context,
     save_error_turn,
     save_success_turn,
+    session_key_for_lab,
     shuffle_models,
-    validate_api_key,
+    validate_lab_api_key,
 )
 from .services.api_key import ApiKeyStatus
 from .services.console import console_overview, filter_runs, model_summaries, session_url_name
-from .services.openai_eval import ApiRequestConfig
 from .model_catalog import disabled_labs, model_to_lab_map
 
 SESSION_PENDING_TURN_KEY = "pending_turn_id"
 SESSION_ERROR_KEY = "request_error"
-SESSION_API_KEY_STATUS = "openai_api_key_status"
 
 
 def _clear_pending(request) -> None:
@@ -49,24 +51,31 @@ def _status_from_session(data: dict) -> ApiKeyStatus:
     )
 
 
-def _check_api_key(request) -> HttpResponse | None:
-    if not settings.OPENAI_API_KEY:
+def _lab_for_run(run: EvaluationRun) -> str:
+    return str(run.api_defaults.get("lab") or "openai")
+
+
+def _check_api_key(request, lab_id: str) -> HttpResponse | None:
+    key = api_key_for_lab(lab_id)
+    if not key:
         return render(
             request,
             "image_evaluator/missing_api_key.html",
+            {"lab": lab_key_context(lab_id)},
             status=503,
         )
 
+    session_key = session_key_for_lab(lab_id)
     if request.GET.get("recheck") == "1":
-        request.session.pop(SESSION_API_KEY_STATUS, None)
+        request.session.pop(session_key, None)
 
-    cached = request.session.get(SESSION_API_KEY_STATUS)
-    if cached and cached.get("key") == settings.OPENAI_API_KEY:
+    cached = request.session.get(session_key)
+    if cached and cached.get("key") == key:
         status = _status_from_session(cached)
     else:
-        status = validate_api_key()
-        request.session[SESSION_API_KEY_STATUS] = {
-            "key": settings.OPENAI_API_KEY,
+        status = validate_lab_api_key(lab_id)
+        request.session[session_key] = {
+            "key": key,
             "ok": status.ok,
             "message": status.message,
             "missing_models": status.missing_models,
@@ -77,14 +86,10 @@ def _check_api_key(request) -> HttpResponse | None:
         return render(
             request,
             "image_evaluator/invalid_api_key.html",
-            {"status": status},
+            {"status": status, "lab": lab_key_context(lab_id)},
             status=503,
         )
     return None
-
-
-def _api_config_for_run(run: EvaluationRun) -> ApiRequestConfig:
-    return ApiRequestConfig.from_dict(run.api_defaults)
 
 
 def _create_run(
@@ -248,36 +253,35 @@ class InspectTurnView(View):
 class PrepareView(View):
     template_name = "image_evaluator/prepare.html"
 
-    def _prepare_context(self, form: PrepareEvaluationForm) -> dict:
+    def _prepare_context(self, form: PrepareEvaluationForm, *, request=None) -> dict:
         return {
             "form": form,
             "disabled_labs": disabled_labs(),
             "model_to_lab": model_to_lab_map(),
+            "lab_key_alerts": lab_key_alerts_for_prepare(request) if request else {},
         }
 
     def get(self, request):
-        blocked = _check_api_key(request)
-        if blocked:
-            return blocked
         form = PrepareEvaluationForm()
         return render(
             request,
             self.template_name,
-            self._prepare_context(form),
+            self._prepare_context(form, request=request),
         )
 
     def post(self, request):
-        blocked = _check_api_key(request)
-        if blocked:
-            return blocked
-
         form = PrepareEvaluationForm(request.POST, request.FILES)
         if not form.is_valid():
             return render(
                 request,
                 self.template_name,
-                self._prepare_context(form),
+                self._prepare_context(form, request=request),
             )
+
+        lab_id = form.cleaned_data["lab"]
+        blocked = _check_api_key(request, lab_id)
+        if blocked:
+            return blocked
 
         uploaded = form.cleaned_data["image"]
         model_order = (
@@ -310,11 +314,10 @@ class EvaluateView(View):
     template_name = "image_evaluator/evaluate.html"
 
     def get(self, request, run_id):
-        blocked = _check_api_key(request)
+        run = get_object_or_404(EvaluationRun, pk=run_id)
+        blocked = _check_api_key(request, _lab_for_run(run))
         if blocked:
             return blocked
-
-        run = get_object_or_404(EvaluationRun, pk=run_id)
         if run.is_benchmark:
             return redirect("image_evaluator:benchmark", run_id=run.id)
         if run.is_complete:
@@ -345,11 +348,10 @@ class EvaluateView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, run_id):
-        blocked = _check_api_key(request)
+        run = get_object_or_404(EvaluationRun, pk=run_id)
+        blocked = _check_api_key(request, _lab_for_run(run))
         if blocked:
             return blocked
-
-        run = get_object_or_404(EvaluationRun, pk=run_id)
         if run.is_benchmark:
             return redirect("image_evaluator:benchmark", run_id=run.id)
         if run.is_complete:
@@ -360,17 +362,18 @@ class EvaluateView(View):
 
         if action == "generate":
             model = run.model_order[current_index]
-            api_config = _api_config_for_run(run)
+            lab_id = _lab_for_run(run)
             started_perf = time.perf_counter()
             request_started_at = datetime.now(timezone.utc)
             try:
                 result = analyze_image(
+                    lab=lab_id,
                     model=model,
                     instructions=run.instructions,
                     user_prompt=run.user_prompt,
                     image_path=run.image.path,
                     image_content_type=run.image_content_type,
-                    api_config=api_config,
+                    api_defaults=run.api_defaults,
                 )
                 turn = save_success_turn(
                     run=run,
@@ -390,10 +393,11 @@ class EvaluateView(View):
                     request_finished_at=datetime.now(timezone.utc),
                     latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
                     api_request=build_api_request_dict(
+                        lab=lab_id,
                         model=model,
                         instructions=run.instructions,
                         user_prompt=run.user_prompt,
-                        api_config=api_config,
+                        api_defaults=run.api_defaults,
                     ),
                 )
                 request.session.pop(SESSION_PENDING_TURN_KEY, None)
@@ -455,18 +459,19 @@ def _run_benchmark_turn(
     run: EvaluationRun,
     turn_index: int,
     model: str,
-    api_config: ApiRequestConfig,
 ) -> None:
+    lab_id = _lab_for_run(run)
     started_perf = time.perf_counter()
     request_started_at = datetime.now(timezone.utc)
     try:
         result = analyze_image(
+            lab=lab_id,
             model=model,
             instructions=run.instructions,
             user_prompt=run.user_prompt,
             image_path=run.image.path,
             image_content_type=run.image_content_type,
-            api_config=api_config,
+            api_defaults=run.api_defaults,
         )
         save_success_turn(
             run=run,
@@ -484,10 +489,11 @@ def _run_benchmark_turn(
             request_finished_at=datetime.now(timezone.utc),
             latency_wall_seconds=round(time.perf_counter() - started_perf, 3),
             api_request=build_api_request_dict(
+                lab=lab_id,
                 model=model,
                 instructions=run.instructions,
                 user_prompt=run.user_prompt,
-                api_config=api_config,
+                api_defaults=run.api_defaults,
             ),
         )
 
@@ -496,16 +502,14 @@ class BenchmarkView(View):
     template_name = "image_evaluator/benchmark.html"
 
     def get(self, request, run_id):
-        blocked = _check_api_key(request)
+        run = get_object_or_404(EvaluationRun, pk=run_id)
+        blocked = _check_api_key(request, _lab_for_run(run))
         if blocked:
             return blocked
-
-        run = get_object_or_404(EvaluationRun, pk=run_id)
         benchmark = get_object_or_404(LatencyBenchmark, run=run)
         if benchmark.status == RunStatus.COMPLETED:
             return redirect("image_evaluator:results", run_id=run.id)
 
-        api_config = _api_config_for_run(run)
         pending = _pending_benchmark_indices(run)
 
         if not pending:
@@ -520,7 +524,6 @@ class BenchmarkView(View):
                 run=run,
                 turn_index=turn_index,
                 model=model,
-                api_config=api_config,
             )
             run.refresh_from_db()
             pending = _pending_benchmark_indices(run)

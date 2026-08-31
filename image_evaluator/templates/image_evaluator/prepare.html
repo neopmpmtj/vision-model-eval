@@ -1,7 +1,7 @@
 {% extends "image_evaluator/base.html" %}
 {% load console_tags %}
 
-{% block title %}Prepare comparison · OpenAI Image Evaluator{% endblock %}
+{% block title %}Prepare comparison · Vision Model Evaluator{% endblock %}
 
 {% block content %}
 <div class="layout single">
@@ -21,6 +21,13 @@
       <label for="{{ form.lab.id_for_label }}">{{ form.lab.label }}</label>
       {{ form.lab }}
       {{ form.lab.errors }}
+
+      <div id="lab-key-alert" class="lab-key-alert" hidden role="alert" aria-live="polite">
+        <h3 id="lab-key-alert-headline"></h3>
+        <p id="lab-key-alert-message"></p>
+        <p id="lab-key-alert-models" class="help" hidden></p>
+      </div>
+
       {% if disabled_labs %}
         <p class="help">Coming soon: {% for lab_id, label in disabled_labs %}{{ label }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
       {% endif %}
@@ -66,59 +73,169 @@
       <h3 style="margin-top:1.25rem;">API options</h3>
       <p class="help">Defaults match <code class="inline">config/settings.py</code>. Snapshotted on the run and sent with every model call.</p>
 
-      <label for="{{ form.reasoning_effort.id_for_label }}">{{ form.reasoning_effort.label }}</label>
-      {{ form.reasoning_effort }}
-      {{ form.reasoning_effort.errors }}
+      <fieldset class="lab-api-options" data-lab="openai">
+        <legend>OpenAI</legend>
+        <label for="{{ form.reasoning_effort.id_for_label }}">{{ form.reasoning_effort.label }}</label>
+        {{ form.reasoning_effort }}
+        {{ form.reasoning_effort.errors }}
 
-      <label for="{{ form.reasoning_mode.id_for_label }}">{{ form.reasoning_mode.label }}</label>
-      {{ form.reasoning_mode }}
-      <p class="help">{{ form.reasoning_mode.help_text }}</p>
-      {{ form.reasoning_mode.errors }}
+        <label for="{{ form.reasoning_mode.id_for_label }}">{{ form.reasoning_mode.label }}</label>
+        {{ form.reasoning_mode }}
+        <p class="help">{{ form.reasoning_mode.help_text }}</p>
+        {{ form.reasoning_mode.errors }}
 
-      <label for="{{ form.max_output_tokens.id_for_label }}">{{ form.max_output_tokens.label }}</label>
-      {{ form.max_output_tokens }}
-      {{ form.max_output_tokens.errors }}
+        <label for="{{ form.max_output_tokens.id_for_label }}">{{ form.max_output_tokens.label }}</label>
+        {{ form.max_output_tokens }}
+        {{ form.max_output_tokens.errors }}
 
-      <label for="{{ form.image_detail.id_for_label }}">{{ form.image_detail.label }}</label>
-      {{ form.image_detail }}
-      <p class="help">{{ form.image_detail.help_text }}</p>
-      {{ form.image_detail.errors }}
+        <label for="{{ form.image_detail.id_for_label }}">{{ form.image_detail.label }}</label>
+        {{ form.image_detail }}
+        <p class="help">{{ form.image_detail.help_text }}</p>
+        {{ form.image_detail.errors }}
 
-      <div style="margin-top:0.75rem;">
-        {{ form.store }}
-        <label for="{{ form.store.id_for_label }}" style="display:inline;font-weight:400;">{{ form.store.label }}</label>
-        <p class="help">{{ form.store.help_text }}</p>
-      </div>
-      {{ form.store.errors }}
+        <div style="margin-top:0.75rem;">
+          {{ form.store }}
+          <label for="{{ form.store.id_for_label }}" style="display:inline;font-weight:400;">{{ form.store.label }}</label>
+          <p class="help">{{ form.store.help_text }}</p>
+        </div>
+        {{ form.store.errors }}
+      </fieldset>
+
+      <fieldset class="lab-api-options" data-lab="google">
+        <legend>Google Gemini</legend>
+        <label for="{{ form.thinking_level.id_for_label }}">{{ form.thinking_level.label }}</label>
+        {{ form.thinking_level }}
+        <p class="help">{{ form.thinking_level.help_text }}</p>
+        {{ form.thinking_level.errors }}
+
+        <label for="{{ form.media_resolution.id_for_label }}">{{ form.media_resolution.label }}</label>
+        {{ form.media_resolution }}
+        <p class="help">{{ form.media_resolution.help_text }}</p>
+        {{ form.media_resolution.errors }}
+
+        <label for="{{ form.gemini_max_output_tokens.id_for_label }}">{{ form.gemini_max_output_tokens.label }}</label>
+        {{ form.gemini_max_output_tokens }}
+        {{ form.gemini_max_output_tokens.errors }}
+      </fieldset>
+
+      <fieldset class="lab-api-options" data-lab="deepseek">
+        <legend>DeepSeek</legend>
+        <label for="{{ form.deepseek_reasoning_effort.id_for_label }}">{{ form.deepseek_reasoning_effort.label }}</label>
+        {{ form.deepseek_reasoning_effort }}
+        <p class="help">{{ form.deepseek_reasoning_effort.help_text }}</p>
+        {{ form.deepseek_reasoning_effort.errors }}
+
+        <label for="{{ form.deepseek_max_output_tokens.id_for_label }}">{{ form.deepseek_max_output_tokens.label }}</label>
+        {{ form.deepseek_max_output_tokens }}
+        {{ form.deepseek_max_output_tokens.errors }}
+
+        <label for="{{ form.deepseek_image_detail.id_for_label }}">{{ form.deepseek_image_detail.label }}</label>
+        {{ form.deepseek_image_detail }}
+        <p class="help">{{ form.deepseek_image_detail.help_text }}</p>
+        {{ form.deepseek_image_detail.errors }}
+      </fieldset>
 
       <div class="actions">
-        <button class="btn" type="submit">Start session</button>
+        <button class="btn" type="submit" id="prepare-submit">Start session</button>
       </div>
     </form>
   </section>
 </div>
+{{ lab_key_alerts|json_script:"lab-key-alerts" }}
 {% endblock %}
 
 {% block extra_head %}
+<style>
+  .lab-key-alert {
+    margin: 0.75rem 0 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+  }
+  .lab-key-alert h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+  }
+  .lab-key-alert p {
+    margin: 0;
+  }
+  .lab-key-alert code.inline {
+    display: inline;
+    background: #111827;
+    color: #fff;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+  }
+</style>
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     var labSelect = document.getElementById("id_lab");
-    var options = document.querySelectorAll(".model-option");
-    if (labSelect && options.length) {
-      function syncModels() {
-        var lab = labSelect.value;
-        options.forEach(function (row) {
-          var show = row.getAttribute("data-lab") === lab;
-          row.style.display = show ? "" : "none";
-          if (!show) {
-            var input = row.querySelector('input[type="checkbox"]');
-            if (input) input.checked = false;
-          }
-        });
-      }
+    var modelOptions = document.querySelectorAll(".model-option");
+    var apiFieldsets = document.querySelectorAll(".lab-api-options");
+    var alertBox = document.getElementById("lab-key-alert");
+    var alertHeadline = document.getElementById("lab-key-alert-headline");
+    var alertMessage = document.getElementById("lab-key-alert-message");
+    var alertModels = document.getElementById("lab-key-alert-models");
+    var submitBtn = document.getElementById("prepare-submit");
+    var alertsNode = document.getElementById("lab-key-alerts");
+    var labKeyAlerts = alertsNode ? JSON.parse(alertsNode.textContent) : {};
 
-      labSelect.addEventListener("change", syncModels);
-      syncModels();
+    function formatEnvMessage(message, settingName) {
+      if (!message || !settingName) return message || "";
+      var envCode = '<code class="inline">.env</code>';
+      var keyCode = '<code class="inline">' + settingName + "</code>";
+      return message
+        .replace(".env", envCode)
+        .replace(settingName, keyCode);
+    }
+
+    function syncLabKeyAlert() {
+      var lab = labSelect ? labSelect.value : "";
+      var alert = labKeyAlerts[lab];
+      if (!alertBox || !alert) {
+        if (alertBox) alertBox.hidden = true;
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+      if (alert.ok) {
+        alertBox.hidden = true;
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+      alertBox.hidden = false;
+      alertHeadline.textContent = alert.headline || "API key problem";
+      alertMessage.innerHTML = formatEnvMessage(alert.message, alert.setting_name);
+      if (alert.missing_models && alert.missing_models.length) {
+        alertModels.hidden = false;
+        alertModels.textContent = "Missing models: " + alert.missing_models.join(", ");
+      } else {
+        alertModels.hidden = true;
+        alertModels.textContent = "";
+      }
+      if (submitBtn) submitBtn.disabled = true;
+    }
+
+    function syncLab() {
+      var lab = labSelect ? labSelect.value : "";
+      modelOptions.forEach(function (row) {
+        var show = row.getAttribute("data-lab") === lab;
+        row.style.display = show ? "" : "none";
+        if (!show) {
+          var input = row.querySelector('input[type="checkbox"]');
+          if (input) input.checked = false;
+        }
+      });
+      apiFieldsets.forEach(function (fieldset) {
+        var show = fieldset.getAttribute("data-lab") === lab;
+        fieldset.style.display = show ? "" : "none";
+      });
+      syncLabKeyAlert();
+    }
+
+    if (labSelect) {
+      labSelect.addEventListener("change", syncLab);
+      syncLab();
     }
 
     var omitBox = document.getElementById("id_omit_instructions");

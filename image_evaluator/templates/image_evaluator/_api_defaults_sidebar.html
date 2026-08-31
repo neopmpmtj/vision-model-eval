@@ -1,0 +1,29 @@
+{% if run.api_defaults %}
+<dl class="meta-grid compact">
+  {% if run.api_defaults.lab %}<div><dt>Lab</dt><dd>{{ run.api_defaults.lab }}</dd></div>{% endif %}
+  {% if run.api_defaults.reasoning %}
+  <div><dt>Reasoning effort</dt><dd>{{ run.api_defaults.reasoning.effort|default:"—" }}</dd></div>
+  {% if run.api_defaults.reasoning.mode %}
+  <div><dt>Reasoning mode</dt><dd>{{ run.api_defaults.reasoning.mode|default:"—" }}</dd></div>
+  {% endif %}
+  {% endif %}
+  {% if run.api_defaults.thinking_level %}
+  <div><dt>Thinking level</dt><dd>{{ run.api_defaults.thinking_level }}</dd></div>
+  {% endif %}
+  {% if run.api_defaults.thinking_budget is not None %}
+  <div><dt>Thinking budget</dt><dd>{{ run.api_defaults.thinking_budget }}</dd></div>
+  {% endif %}
+  {% if run.api_defaults.media_resolution %}
+  <div><dt>Media resolution</dt><dd>{{ run.api_defaults.media_resolution }}</dd></div>
+  {% endif %}
+  {% if run.api_defaults.max_output_tokens %}
+  <div><dt>Max output tokens</dt><dd>{{ run.api_defaults.max_output_tokens }}</dd></div>
+  {% endif %}
+  {% if run.api_defaults.image_detail %}
+  <div><dt>Image detail</dt><dd>{{ run.api_defaults.image_detail }}</dd></div>
+  {% endif %}
+  {% if run.api_defaults.store is not None %}
+  <div><dt>Store</dt><dd>{{ run.api_defaults.store|yesno:"yes,no" }}</dd></div>
+  {% endif %}
+</dl>
+{% endif %}

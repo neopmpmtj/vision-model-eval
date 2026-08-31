@@ -1,7 +1,7 @@
 {% extends "image_evaluator/base.html" %}
 {% load console_tags %}
 
-{% block title %}Turn {{ turn.turn_index }} · OpenAI Image Evaluator{% endblock %}
+{% block title %}Turn {{ turn.turn_index }} · Vision Model Evaluator{% endblock %}
 
 {% block content %}
 <div class="layout wide">
@@ -21,12 +21,12 @@
     <dl class="meta-grid">
       <div><dt>Turn index</dt><dd>{{ turn.turn_index }}</dd></div>
       <div><dt>Response model</dt><dd>{{ turn.response_model|default:"—" }}</dd></div>
-      <div><dt>OpenAI response ID</dt><dd>{{ turn.openai_response_id|default:"—" }}</dd></div>
-      <div><dt>OpenAI status</dt><dd>{{ turn.openai_status|default:"—" }}</dd></div>
+      <div><dt>Provider response ID</dt><dd>{{ turn.openai_response_id|default:"—" }}</dd></div>
+      <div><dt>Provider status</dt><dd>{{ turn.openai_status|default:"—" }}</dd></div>
       <div><dt>Request started</dt><dd>{% if turn.request_started_at %}{{ turn.request_started_at|date:"Y-m-d H:i:s" }} UTC{% else %}—{% endif %}</dd></div>
       <div><dt>Request finished</dt><dd>{% if turn.request_finished_at %}{{ turn.request_finished_at|date:"Y-m-d H:i:s" }} UTC{% else %}—{% endif %}</dd></div>
       <div><dt>Wall latency</dt><dd>{% if turn.latency_wall_seconds %}{{ turn.latency_wall_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
-      <div><dt>OpenAI latency</dt><dd>{% if turn.latency_openai_seconds %}{{ turn.latency_openai_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
+      <div><dt>Provider latency</dt><dd>{% if turn.latency_openai_seconds %}{{ turn.latency_openai_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
       <div><dt>TTFB</dt><dd>{% if turn.time_to_first_token_seconds %}{{ turn.time_to_first_token_seconds|floatformat:3 }}s{% else %}—{% endif %}</dd></div>
       <div><dt>Input tokens</dt><dd>{{ turn.input_tokens|default:"—" }}</dd></div>
       <div><dt>Output tokens</dt><dd>{{ turn.output_tokens|default:"—" }}</dd></div>

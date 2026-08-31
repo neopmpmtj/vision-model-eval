@@ -14,6 +14,8 @@ from image_evaluator.prompt_presets import (
     default_preset_id,
     preset_choices,
 )
+from image_evaluator.services.deepseek_eval import DEEPSEEK_IMAGE_DETAIL_CHOICES, DEEPSEEK_REASONING_EFFORT_CHOICES
+from image_evaluator.services.gemini_eval import THINKING_LEVEL_CHOICES
 from image_evaluator.services.openai_eval import ApiRequestConfig
 
 # openai.types.shared.reasoning_effort.ReasoningEffort
@@ -39,6 +41,12 @@ IMAGE_DETAIL_CHOICES = [
     ("low", "low"),
     ("high", "high"),
     ("original", "original"),
+]
+
+GEMINI_MEDIA_RESOLUTION_CHOICES = [
+    ("low", "low"),
+    ("medium", "medium"),
+    ("high", "high"),
 ]
 
 
@@ -81,7 +89,7 @@ class PrepareEvaluationForm(forms.Form):
         label="System instructions",
         choices=[],
         initial=default_preset_id,
-        help_text="Sent as Responses API instructions (system/developer message).",
+        help_text="Sent as system/developer instructions when enabled.",
     )
     additional = forms.CharField(
         label="Additional instructions",
@@ -99,30 +107,76 @@ class PrepareEvaluationForm(forms.Form):
         label="Reasoning effort",
         choices=REASONING_EFFORT_CHOICES,
         initial=settings.OPENAI_DEFAULT_REASONING_EFFORT,
+        required=False,
     )
     reasoning_mode = forms.ChoiceField(
         label="Reasoning mode",
         choices=REASONING_MODE_CHOICES,
         initial=settings.OPENAI_DEFAULT_REASONING_MODE,
         help_text="GPT-5 and o-series models only.",
+        required=False,
     )
     max_output_tokens = forms.IntegerField(
         label="Max output tokens",
         min_value=1,
         max_value=128000,
         initial=settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS,
+        required=False,
     )
     image_detail = forms.ChoiceField(
         label="Image detail",
         choices=IMAGE_DETAIL_CHOICES,
         initial=settings.OPENAI_DEFAULT_IMAGE_DETAIL,
-        help_text="Responses API input_image detail parameter.",
+        help_text="OpenAI Responses API input_image detail parameter.",
+        required=False,
     )
     store = forms.BooleanField(
         label="Store responses on OpenAI",
         required=False,
         initial=settings.OPENAI_DEFAULT_STORE,
         help_text="When unchecked, the API is called with store=false.",
+    )
+    thinking_level = forms.ChoiceField(
+        label="Thinking level",
+        choices=[(value, value) for value in THINKING_LEVEL_CHOICES],
+        initial=settings.GEMINI_DEFAULT_THINKING_LEVEL,
+        help_text="Gemini 3.x thinking level.",
+        required=False,
+    )
+    media_resolution = forms.ChoiceField(
+        label="Media resolution",
+        choices=GEMINI_MEDIA_RESOLUTION_CHOICES,
+        initial=settings.GEMINI_DEFAULT_MEDIA_RESOLUTION,
+        help_text="Gemini image token allocation.",
+        required=False,
+    )
+    gemini_max_output_tokens = forms.IntegerField(
+        label="Max output tokens",
+        min_value=1,
+        max_value=65536,
+        initial=settings.GEMINI_DEFAULT_MAX_OUTPUT_TOKENS,
+        required=False,
+    )
+    deepseek_reasoning_effort = forms.ChoiceField(
+        label="Reasoning effort",
+        choices=[(value, value) for value in DEEPSEEK_REASONING_EFFORT_CHOICES],
+        initial=settings.DEEPSEEK_DEFAULT_REASONING_EFFORT,
+        help_text="DeepSeek thinking effort: none disables thinking.",
+        required=False,
+    )
+    deepseek_image_detail = forms.ChoiceField(
+        label="Image detail",
+        choices=[(value, value) for value in DEEPSEEK_IMAGE_DETAIL_CHOICES],
+        initial=settings.DEEPSEEK_DEFAULT_IMAGE_DETAIL,
+        help_text="DeepSeek Responses API input_image detail parameter.",
+        required=False,
+    )
+    deepseek_max_output_tokens = forms.IntegerField(
+        label="Max output tokens",
+        min_value=1,
+        max_value=128000,
+        initial=settings.DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS,
+        required=False,
     )
 
     def __init__(self, *args, **kwargs):
@@ -155,8 +209,8 @@ class PrepareEvaluationForm(forms.Form):
         invalid = [model for model in selected if model not in allowed]
         if invalid:
             raise forms.ValidationError("One or more models are not available for the selected lab.")
-        if len(selected) < 2:
-            raise forms.ValidationError("Select at least two models to make a comparison.")
+        if len(selected) < 1:
+            raise forms.ValidationError("Select at least one model.")
         return selected
 
     def clean_description(self):
@@ -189,17 +243,51 @@ class PrepareEvaluationForm(forms.Form):
         cleaned["user_prompt"] = user_prompt
         return cleaned
 
+    def _shared_metadata(self) -> dict:
+        return {
+            "lab": self.cleaned_data["lab"],
+            "omit_instructions": bool(self.cleaned_data["omit_instructions"]),
+            "prompt_preset": self.cleaned_data["prompt_preset"],
+        }
+
     def api_defaults_dict(self) -> dict:
+        lab_id = self.cleaned_data["lab"]
+        if lab_id == "google":
+            config = {
+                "thinking_level": self.cleaned_data.get("thinking_level")
+                or settings.GEMINI_DEFAULT_THINKING_LEVEL,
+                "media_resolution": self.cleaned_data.get("media_resolution")
+                or settings.GEMINI_DEFAULT_MEDIA_RESOLUTION,
+                "max_output_tokens": self.cleaned_data.get("gemini_max_output_tokens")
+                or settings.GEMINI_DEFAULT_MAX_OUTPUT_TOKENS,
+            }
+            config.update(self._shared_metadata())
+            return config
+        if lab_id == "deepseek":
+            config = {
+                "reasoning": {
+                    "effort": self.cleaned_data.get("deepseek_reasoning_effort")
+                    or settings.DEEPSEEK_DEFAULT_REASONING_EFFORT,
+                },
+                "max_output_tokens": self.cleaned_data.get("deepseek_max_output_tokens")
+                or settings.DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS,
+                "image_detail": self.cleaned_data.get("deepseek_image_detail")
+                or settings.DEEPSEEK_DEFAULT_IMAGE_DETAIL,
+            }
+            config.update(self._shared_metadata())
+            return config
         config = ApiRequestConfig(
-            reasoning_effort=self.cleaned_data["reasoning_effort"],
-            reasoning_mode=self.cleaned_data["reasoning_mode"],
-            max_output_tokens=self.cleaned_data["max_output_tokens"],
-            store=self.cleaned_data["store"],
-            image_detail=self.cleaned_data["image_detail"],
+            reasoning_effort=self.cleaned_data.get("reasoning_effort")
+            or settings.OPENAI_DEFAULT_REASONING_EFFORT,
+            reasoning_mode=self.cleaned_data.get("reasoning_mode")
+            or settings.OPENAI_DEFAULT_REASONING_MODE,
+            max_output_tokens=self.cleaned_data.get("max_output_tokens")
+            or settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS,
+            store=bool(self.cleaned_data.get("store", settings.OPENAI_DEFAULT_STORE)),
+            image_detail=self.cleaned_data.get("image_detail")
+            or settings.OPENAI_DEFAULT_IMAGE_DETAIL,
         ).to_dict()
-        config["lab"] = self.cleaned_data["lab"]
-        config["omit_instructions"] = bool(self.cleaned_data["omit_instructions"])
-        config["prompt_preset"] = self.cleaned_data["prompt_preset"]
+        config.update(self._shared_metadata())
         return config
 
 

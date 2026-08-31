@@ -1,7 +1,7 @@
 {% extends "image_evaluator/base.html" %}
 {% load console_tags %}
 
-{% block title %}Inspect run · OpenAI Image Evaluator{% endblock %}
+{% block title %}Inspect run · Vision Model Evaluator{% endblock %}
 
 {% block content %}
 <div class="layout wide">
@@ -63,11 +63,26 @@
     <dl class="meta-grid">
       {% if run.api_defaults.reasoning %}
       <div><dt>Reasoning effort</dt><dd>{{ run.api_defaults.reasoning.effort|default:"—" }}</dd></div>
+      {% if run.api_defaults.reasoning.mode %}
       <div><dt>Reasoning mode</dt><dd>{{ run.api_defaults.reasoning.mode|default:"—" }}</dd></div>
       {% endif %}
+      {% endif %}
+      {% if run.api_defaults.thinking_level %}
+      <div><dt>Thinking level</dt><dd>{{ run.api_defaults.thinking_level }}</dd></div>
+      {% endif %}
+      {% if run.api_defaults.thinking_budget is not None %}
+      <div><dt>Thinking budget</dt><dd>{{ run.api_defaults.thinking_budget }}</dd></div>
+      {% endif %}
+      {% if run.api_defaults.media_resolution %}
+      <div><dt>Media resolution</dt><dd>{{ run.api_defaults.media_resolution }}</dd></div>
+      {% endif %}
       <div><dt>Max output tokens</dt><dd>{{ run.api_defaults.max_output_tokens|default:"—" }}</dd></div>
-      <div><dt>Image detail</dt><dd>{{ run.api_defaults.image_detail|default:"—" }}</dd></div>
+      {% if run.api_defaults.image_detail %}
+      <div><dt>Image detail</dt><dd>{{ run.api_defaults.image_detail }}</dd></div>
+      {% endif %}
+      {% if run.api_defaults.store is not None %}
       <div><dt>Store</dt><dd>{{ run.api_defaults.store|yesno:"yes,no" }}</dd></div>
+      {% endif %}
       {% if run.api_defaults.prompt_preset %}<div><dt>Preset</dt><dd>{{ run.api_defaults.prompt_preset }}</dd></div>{% endif %}
       <div><dt>Omit instructions</dt><dd>{{ run.api_defaults.omit_instructions|yesno:"yes,no,—" }}</dd></div>
     </dl>
@@ -89,7 +104,7 @@
             <th>Status</th>
             {% if not run.is_benchmark %}<th>Rating</th>{% endif %}
             <th>Wall (s)</th>
-            <th>OpenAI (s)</th>
+            <th>Provider (s)</th>
             <th>Tokens</th>
             <th>Generated</th>
             <th></th>

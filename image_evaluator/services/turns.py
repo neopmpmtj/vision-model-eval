@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from django.utils import timezone as django_timezone
 
@@ -14,7 +14,7 @@ from image_evaluator.models import (
     TurnStatus,
 )
 
-from .openai_eval import AnalysisResult, ApiRequestConfig
+from .analysis import AnalysisResult
 
 
 def sample_label_for_index(index: int) -> str:
@@ -90,22 +90,6 @@ def save_error_turn(
         },
     )
     return turn
-
-
-def build_api_request_dict(
-    *,
-    model: str,
-    instructions: str = "",
-    user_prompt: str = "",
-    api_config: ApiRequestConfig | None = None,
-) -> dict:
-    config = api_config or ApiRequestConfig.from_settings()
-    return {
-        "model": model,
-        "instructions": instructions,
-        "user_prompt": user_prompt,
-        **config.to_dict(),
-    }
 
 
 def complete_benchmark(benchmark: LatencyBenchmark) -> None:

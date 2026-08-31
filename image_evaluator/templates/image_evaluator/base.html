@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}OpenAI Image Evaluator{% endblock %}</title>
+  <title>{% block title %}Vision Model Evaluator{% endblock %}</title>
   <style>
     :root {
       --bg: #f6f7f9;
@@ -382,8 +382,8 @@
   <header class="app-header">
     <div class="header-inner">
       <div>
-        <h1>OpenAI Image Understanding Evaluator</h1>
-        <p>One image · optional system instructions · several OpenAI models</p>
+        <h1>Vision Model Evaluator</h1>
+        <p>One image · optional system instructions · compare frontier vision models</p>
       </div>
       <nav class="site-nav" aria-label="Main">
         <a href="{% url 'image_evaluator:console' %}"{% if request.resolver_match.url_name == 'console' %} class="active"{% endif %}>Console</a>

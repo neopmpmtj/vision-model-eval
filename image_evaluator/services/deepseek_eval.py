@@ -1,9 +1,8 @@
-"""OpenAI vision evaluation helpers."""
+"""DeepSeek vision evaluation helpers."""
 
 from __future__ import annotations
 
 import base64
-import random
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,60 +14,52 @@ from openai import OpenAI
 
 from .analysis import AnalysisResult
 
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+
+# api-docs.deepseek.com Chat Completions reasoning_effort
+DEEPSEEK_REASONING_EFFORT_CHOICES = ("none", "low", "high", "max")
+
+# api-docs.deepseek.com/guides/vision detail
+DEEPSEEK_IMAGE_DETAIL_CHOICES = ("auto", "low", "high", "original")
+
 
 @dataclass(frozen=True)
-class ApiRequestConfig:
+class DeepSeekApiRequestConfig:
     reasoning_effort: str
-    reasoning_mode: str
     max_output_tokens: int
-    store: bool
     image_detail: str
 
     @classmethod
-    def from_settings(cls) -> ApiRequestConfig:
+    def from_settings(cls) -> DeepSeekApiRequestConfig:
         return cls(
-            reasoning_effort=settings.OPENAI_DEFAULT_REASONING_EFFORT,
-            reasoning_mode=settings.OPENAI_DEFAULT_REASONING_MODE,
-            max_output_tokens=settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS,
-            store=settings.OPENAI_DEFAULT_STORE,
-            image_detail=settings.OPENAI_DEFAULT_IMAGE_DETAIL,
+            reasoning_effort=settings.DEEPSEEK_DEFAULT_REASONING_EFFORT,
+            max_output_tokens=settings.DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS,
+            image_detail=settings.DEEPSEEK_DEFAULT_IMAGE_DETAIL,
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> ApiRequestConfig:
+    def from_dict(cls, data: dict[str, Any] | None) -> DeepSeekApiRequestConfig:
         if not data:
             return cls.from_settings()
         reasoning = data.get("reasoning") if isinstance(data.get("reasoning"), dict) else {}
         effort = reasoning.get("effort") or data.get("reasoning_effort")
-        mode = reasoning.get("mode") or data.get("reasoning_mode")
         return cls(
-            reasoning_effort=str(effort or settings.OPENAI_DEFAULT_REASONING_EFFORT),
-            reasoning_mode=str(mode or settings.OPENAI_DEFAULT_REASONING_MODE),
-            max_output_tokens=int(data.get("max_output_tokens") or settings.OPENAI_DEFAULT_MAX_OUTPUT_TOKENS),
-            store=bool(data.get("store", settings.OPENAI_DEFAULT_STORE)),
-            image_detail=str(data.get("image_detail") or settings.OPENAI_DEFAULT_IMAGE_DETAIL),
+            reasoning_effort=str(effort or settings.DEEPSEEK_DEFAULT_REASONING_EFFORT),
+            max_output_tokens=int(data.get("max_output_tokens") or settings.DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS),
+            image_detail=str(data.get("image_detail") or settings.DEEPSEEK_DEFAULT_IMAGE_DETAIL),
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "reasoning": {
-                "effort": self.reasoning_effort,
-                "mode": self.reasoning_mode,
-            },
+            "reasoning": {"effort": self.reasoning_effort},
             "max_output_tokens": self.max_output_tokens,
-            "store": self.store,
             "image_detail": self.image_detail,
         }
 
 
-def default_api_defaults() -> dict[str, Any]:
-    return ApiRequestConfig.from_settings().to_dict()
-
-
-def shuffle_models(selected_models: list[str]) -> list[str]:
-    model_order = list(selected_models)
-    random.SystemRandom().shuffle(model_order)
-    return model_order
+def _client(api_key: str | None = None) -> OpenAI:
+    key = api_key if api_key is not None else settings.DEEPSEEK_API_KEY
+    return OpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
 
 
 def _usage_value(usage: Any, attr: str, nested_attr: str | None = None) -> int | None:
@@ -93,18 +84,11 @@ def _response_snapshot(response: Any) -> dict[str, Any]:
         "status": str(getattr(response, "status", "") or ""),
         "created_at": getattr(response, "created_at", None),
         "completed_at": getattr(response, "completed_at", None),
-        "max_output_tokens": getattr(response, "max_output_tokens", None),
-        "reasoning": data.get("reasoning"),
         "usage": data.get("usage"),
     }
 
 
 def _openai_latency_seconds(response: Any) -> float | None:
-    """Server-side window from response Unix timestamps (often whole seconds).
-
-    This is not comparable as a strict upper/lower bound on client wall time:
-    integer-second timestamps can round up (openai > wall) or down (openai < wall).
-    """
     created_at = getattr(response, "created_at", None)
     completed_at = getattr(response, "completed_at", None)
     if created_at is None or completed_at is None:
@@ -119,9 +103,9 @@ def analyze_image(
     user_prompt: str = "",
     image_path: Path | str,
     image_content_type: str = "image/jpeg",
-    api_config: ApiRequestConfig | None = None,
+    api_config: DeepSeekApiRequestConfig | None = None,
 ) -> AnalysisResult:
-    config = api_config or ApiRequestConfig.from_settings()
+    config = api_config or DeepSeekApiRequestConfig.from_settings()
     image_bytes = Path(image_path).read_bytes()
     encoded_image = base64.b64encode(image_bytes).decode("utf-8")
     image_data_url = f"data:{image_content_type};base64,{encoded_image}"
@@ -154,14 +138,13 @@ def analyze_image(
                 "content": content,
             }
         ],
-        "reasoning": {"effort": config.reasoning_effort, "mode": config.reasoning_mode},
+        "reasoning": {"effort": config.reasoning_effort},
         "max_output_tokens": config.max_output_tokens,
-        "store": config.store,
     }
     if instructions_text:
         create_kwargs["instructions"] = instructions_text
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    client = _client()
     request_started_at = datetime.now(timezone.utc)
     started_perf = time.perf_counter()
     response = client.responses.create(**create_kwargs)

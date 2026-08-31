@@ -26,7 +26,7 @@ def mock_valid_api_key(*args, **kwargs):
 
 
 class ApiDefaultsFormTests(TestCase):
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_prepare_snapshots_api_defaults_on_run(self, _mock_key):
         data = {
             "run_type": "blind_comparison",
@@ -106,12 +106,12 @@ class GenerateUsesRunSnapshotTests(TestCase):
             },
         )
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     @patch("image_evaluator.views.analyze_image")
     def test_generate_passes_run_api_config(self, mock_analyze, _mock_key):
         from datetime import datetime, timezone
 
-        from image_evaluator.services.openai_eval import AnalysisResult
+        from image_evaluator.services.analysis import AnalysisResult
 
         mock_analyze.return_value = AnalysisResult(
             response_text="ok",
@@ -136,10 +136,11 @@ class GenerateUsesRunSnapshotTests(TestCase):
         url = reverse("image_evaluator:evaluate", kwargs={"run_id": self.run.id})
         client.post(url, {"action": "generate"})
         mock_analyze.assert_called_once()
-        config = mock_analyze.call_args.kwargs["api_config"]
-        self.assertEqual(config.reasoning_effort, "xhigh")
-        self.assertEqual(config.reasoning_mode, "pro")
-        self.assertEqual(config.max_output_tokens, 2048)
-        self.assertEqual(config.image_detail, "high")
-        self.assertEqual(mock_analyze.call_args.kwargs["user_prompt"], "describe")
-        self.assertEqual(mock_analyze.call_args.kwargs["instructions"], "")
+        call_kwargs = mock_analyze.call_args.kwargs
+        self.assertEqual(call_kwargs["lab"], "openai")
+        self.assertEqual(call_kwargs["api_defaults"]["reasoning"]["effort"], "xhigh")
+        self.assertEqual(call_kwargs["api_defaults"]["reasoning"]["mode"], "pro")
+        self.assertEqual(call_kwargs["api_defaults"]["max_output_tokens"], 2048)
+        self.assertEqual(call_kwargs["api_defaults"]["image_detail"], "high")
+        self.assertEqual(call_kwargs["user_prompt"], "describe")
+        self.assertEqual(call_kwargs["instructions"], "")

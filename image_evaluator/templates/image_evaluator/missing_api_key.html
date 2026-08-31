@@ -1,14 +1,16 @@
 {% extends "image_evaluator/base.html" %}
 
-{% block title %}API key missing · OpenAI Image Evaluator{% endblock %}
+{% block title %}API key missing · Vision Model Evaluator{% endblock %}
 
 {% block content %}
 <div class="layout single">
   <section class="panel">
-    <h2>OPENAI_API_KEY was not found</h2>
+    <h2>{{ lab.setting_name }} was not found</h2>
     <p>
-      Add your key to the project root <code style="display:inline;background:#111827;padding:0.1rem 0.35rem;">.env</code>
-      file, then restart the server.
+      Add your {{ lab.lab_label }} key to the project root
+      <code style="display:inline;background:#111827;padding:0.1rem 0.35rem;">.env</code>
+      file as <code style="display:inline;background:#111827;padding:0.1rem 0.35rem;">{{ lab.setting_name }}</code>,
+      then restart the server.
     </p>
   </section>
 </div>

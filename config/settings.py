@@ -101,6 +101,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OPENAI_API_KEY = config("OPENAI_API_KEY", default="")
+GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
+DEEPSEEK_API_KEY = config("DEEPSEEK_API_KEY", default="")
 
 MODEL_LABS = {
     "openai": {
@@ -114,13 +116,22 @@ MODEL_LABS = {
     },
     "google": {
         "label": "Google Gemini",
-        "enabled": False,
-        "models": [],
+        "enabled": True,
+        "models": [
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-pro-preview",
+            "gemini-3.1-flash-lite",
+        ],
     },
     "deepseek": {
         "label": "DeepSeek",
-        "enabled": False,
-        "models": [],
+        "enabled": True,
+        "models": [
+            "deepseek-v4-flash-vision-exp",
+        ],
     },
 }
 
@@ -171,3 +182,12 @@ OPENAI_DEFAULT_REASONING_MODE = "standard"
 OPENAI_DEFAULT_MAX_OUTPUT_TOKENS = 1600
 OPENAI_DEFAULT_IMAGE_DETAIL = "auto"
 OPENAI_DEFAULT_STORE = False
+
+GEMINI_DEFAULT_THINKING_LEVEL = "medium"
+GEMINI_DEFAULT_THINKING_BUDGET = -1
+GEMINI_DEFAULT_MEDIA_RESOLUTION = "high"
+GEMINI_DEFAULT_MAX_OUTPUT_TOKENS = 1600
+
+DEEPSEEK_DEFAULT_REASONING_EFFORT = "high"
+DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS = 1600
+DEEPSEEK_DEFAULT_IMAGE_DETAIL = "auto"

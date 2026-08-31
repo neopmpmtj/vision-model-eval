@@ -78,7 +78,7 @@ class ComposeEvalTextTests(TestCase):
 
 
 class PromptPresetTests(TestCase):
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_prepare_page_shows_system_instruction_controls(self, _mock_key):
         response = Client().get(reverse("image_evaluator:prepare"))
         self.assertEqual(response.status_code, 200)
@@ -88,7 +88,7 @@ class PromptPresetTests(TestCase):
         self.assertContains(response, "OCR / text extraction")
         self.assertNotContains(response, ">Custom<")
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_default_describe_persists_as_instructions(self, _mock_key):
         request = RequestFactory().post(reverse("image_evaluator:prepare"), base_prepare_data())
         request.FILES["image"] = make_test_image()
@@ -101,7 +101,7 @@ class PromptPresetTests(TestCase):
         self.assertFalse(run.api_defaults["omit_instructions"])
         self.assertEqual(run.api_defaults["prompt_preset"], "describe")
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_omit_persists_user_prompt_only(self, _mock_key):
         additional = "Is there a cat? Answer yes or no."
         data = base_prepare_data(omit_instructions="on", additional=additional)
@@ -119,7 +119,7 @@ class PromptPresetTests(TestCase):
         self.assertContains(inspect, additional)
         self.assertContains(inspect, "User prompt")
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_omitted_description_defaults_to_blank(self, _mock_key):
         data = base_prepare_data()
         request = RequestFactory().post(reverse("image_evaluator:prepare"), data)
@@ -130,7 +130,7 @@ class PromptPresetTests(TestCase):
         run = EvaluationRun.objects.latest("created_at")
         self.assertEqual(run.description, "")
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_description_persisted_and_shown_on_inspect(self, _mock_key):
         description = "OCR on faded shipping labels"
         data = base_prepare_data(description=description)
@@ -145,7 +145,7 @@ class PromptPresetTests(TestCase):
         inspect = Client().get(reverse("image_evaluator:inspect", kwargs={"run_id": run.id}))
         self.assertContains(inspect, description)
 
-    @patch("image_evaluator.views.validate_api_key", side_effect=mock_valid_api_key)
+    @patch("image_evaluator.views.validate_lab_api_key", side_effect=mock_valid_api_key)
     def test_csv_includes_instructions_and_user_prompt(self, _mock_key):
         description = "Compare terra vs sol on receipts"
         additional = "Is there a stop sign?"

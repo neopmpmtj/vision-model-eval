@@ -1,6 +1,6 @@
 {% extends "image_evaluator/base.html" %}
 
-{% block title %}Results · OpenAI Image Evaluator{% endblock %}
+{% block title %}Results · Vision Model Evaluator{% endblock %}
 
 {% block content %}
 <div class="layout wide">
@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <p class="help">Wall is precise client wait time. OpenAI is <code class="inline">completed_at − created_at</code> from the API (often whole-second Unix timestamps) — it can be higher or lower than wall.</p>
+    <p class="help">Wall is precise client wait time. Provider is server-reported latency when available (often whole-second timestamps) — it can be higher or lower than wall.</p>
 
     <div style="overflow-x:auto;margin:1rem 0;">
       <table>
@@ -39,7 +39,7 @@
             <th>Status</th>
             {% if not benchmark %}<th>Rating</th>{% endif %}
             <th>Wall (s)<br><span class="muted" style="font-weight:400;">client</span></th>
-            <th>OpenAI (s)<br><span class="muted" style="font-weight:400;">server ~1s</span></th>
+            <th>Provider (s)<br><span class="muted" style="font-weight:400;">server</span></th>
             <th>Input</th>
             <th>Output</th>
             <th>Reasoning</th>

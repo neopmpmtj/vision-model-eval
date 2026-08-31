@@ -28,6 +28,11 @@ def default_lab_id() -> str:
     return next(iter(settings.MODEL_LABS))
 
 
+def lab_label(lab_id: str) -> str:
+    lab = settings.MODEL_LABS.get(lab_id, {})
+    return str(lab.get("label") or lab_id)
+
+
 def models_for_lab(lab_id: str) -> list[str]:
     lab = settings.MODEL_LABS.get(lab_id, {})
     return list(lab.get("models", []))
